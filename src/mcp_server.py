@@ -365,6 +365,7 @@ class MCPServer:
             from build123d import export_stl
             import trimesh
             import tempfile
+            import numpy as np
             
             with tempfile.NamedTemporaryFile(suffix='.stl', delete=False) as f:
                 tmp_path = f.name

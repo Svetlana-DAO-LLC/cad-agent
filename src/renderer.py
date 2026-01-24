@@ -97,7 +97,13 @@ class Renderer:
         from build123d.exporters import Drawing
         
         look_from = VIEW_DIRECTIONS.get(view, VIEW_DIRECTIONS["front"])
-        drawing = Drawing(shape, look_from=look_from, with_hidden=with_hidden)
+        
+        # Choose appropriate up vector (can't be parallel to look_from)
+        look_up = (0, 0, 1)
+        if view in ("top", "bottom"):
+            look_up = (0, -1, 0)  # Use Y as up for top/bottom views
+        
+        drawing = Drawing(shape, look_from=look_from, look_up=look_up, with_hidden=with_hidden)
         
         # Render to SVG then convert to PNG
         svg_content = self._drawing_to_svg(drawing, shape, view, with_dimensions)
