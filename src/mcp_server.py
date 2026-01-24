@@ -447,11 +447,22 @@ class MCPServer:
 def create_http_app():
     """Create a FastAPI app for HTTP-based access."""
     from fastapi import FastAPI, HTTPException
-    from fastapi.responses import FileResponse, JSONResponse
+    from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
+    from fastapi.staticfiles import StaticFiles
     from pydantic import BaseModel
     
     app = FastAPI(title="CAD Agent", version="0.1.0")
+    
+    # CORS for development
+    from fastapi.middleware.cors import CORSMiddleware
+    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    
     server = MCPServer()
+    
+    # Serve static files
+    static_dir = Path(__file__).parent / "static"
+    if static_dir.exists():
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
     
     class CreateModelRequest(BaseModel):
         code: str
@@ -466,6 +477,13 @@ def create_http_app():
     class ExportRequest(BaseModel):
         name: str = None
         format: str = "stl"
+    
+    @app.get("/")
+    def root():
+        viewer_path = Path(__file__).parent / "static" / "viewer.html"
+        if viewer_path.exists():
+            return HTMLResponse(viewer_path.read_text())
+        return {"message": "CAD Agent API. Visit /docs for API documentation."}
     
     @app.get("/health")
     def health():
@@ -508,7 +526,11 @@ def create_http_app():
         result = server._export_model(req.name, req.format)
         if "error" in result:
             raise HTTPException(400, result["error"])
-        return FileResponse(result["path"], filename=Path(result["path"]).name)
+        return FileResponse(
+            result["path"], 
+            filename=Path(result["path"]).name,
+            media_type="application/octet-stream"
+        )
     
     @app.post("/analyze/printability")
     def analyze(req: RenderRequest):

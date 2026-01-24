@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAD Agent Viewer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'JetBrains Mono', 'Courier New', monospace; background: #1a1a2e; color: #eee; }
+        
+        .header {
+            background: #16213e;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border-bottom: 1px solid #0f3460;
+        }
+        .header h1 { font-size: 16px; color: #e94560; }
+        .header .status { font-size: 12px; color: #4ecca3; }
+        
+        .main {
+            display: grid;
+            grid-template-columns: 250px 1fr 300px;
+            height: calc(100vh - 50px);
+        }
+        
+        .sidebar {
+            background: #16213e;
+            padding: 16px;
+            overflow-y: auto;
+            border-right: 1px solid #0f3460;
+        }
+        .sidebar h3 { font-size: 12px; color: #888; margin-bottom: 8px; text-transform: uppercase; }
+        
+        .model-list { list-style: none; }
+        .model-list li {
+            padding: 8px 12px;
+            margin: 4px 0;
+            background: #1a1a2e;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .model-list li:hover { background: #0f3460; }
+        .model-list li.active { background: #e94560; color: white; }
+        
+        .viewer-container {
+            position: relative;
+            background: #0a0a1a;
+        }
+        #viewer-3d { width: 100%; height: 100%; }
+        
+        .controls {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            display: flex;
+            gap: 8px;
+        }
+        .controls button {
+            background: rgba(22, 33, 62, 0.9);
+            color: #eee;
+            border: 1px solid #0f3460;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .controls button:hover { background: #0f3460; }
+        
+        .info-panel {
+            background: #16213e;
+            padding: 16px;
+            overflow-y: auto;
+            border-left: 1px solid #0f3460;
+        }
+        .info-panel h3 { font-size: 12px; color: #888; margin: 12px 0 6px; text-transform: uppercase; }
+        .info-panel .value { font-size: 13px; color: #4ecca3; margin: 2px 0; }
+        .info-panel .dim { font-size: 12px; color: #ccc; padding: 3px 0; }
+        
+        .render-gallery {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .render-gallery img {
+            width: 100%;
+            border-radius: 4px;
+            border: 1px solid #0f3460;
+            cursor: pointer;
+        }
+        .render-gallery img:hover { border-color: #e94560; }
+        
+        .code-input {
+            margin-top: 16px;
+        }
+        .code-input textarea {
+            width: 100%;
+            height: 120px;
+            background: #0a0a1a;
+            color: #4ecca3;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            padding: 8px;
+            font-family: inherit;
+            font-size: 11px;
+            resize: vertical;
+        }
+        .code-input button {
+            margin-top: 8px;
+            width: 100%;
+            padding: 8px;
+            background: #e94560;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .code-input button:hover { background: #c73e54; }
+        
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #e94560;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔧 CAD Agent</h1>
+        <span class="status" id="status">Connecting...</span>
+    </div>
+    
+    <div class="main">
+        <div class="sidebar">
+            <h3>Models</h3>
+            <ul class="model-list" id="model-list"></ul>
+            
+            <div class="code-input">
+                <h3>Create Model</h3>
+                <textarea id="code-input" placeholder="from build123d import *&#10;result = Box(30, 20, 10)"></textarea>
+                <button onclick="createModel()">▶ Execute</button>
+            </div>
+        </div>
+        
+        <div class="viewer-container">
+            <canvas id="viewer-3d"></canvas>
+            <div class="loading" id="loading">Drop STL or create a model</div>
+            <div class="controls">
+                <button onclick="resetView()">⟲ Reset</button>
+                <button onclick="toggleWireframe()">◫ Wire</button>
+                <button onclick="exportSTL()">⬇ STL</button>
+                <button onclick="renderViews()">📐 Views</button>
+            </div>
+        </div>
+        
+        <div class="info-panel">
+            <h3>Geometry</h3>
+            <div id="geometry-info">
+                <div class="value">No model loaded</div>
+            </div>
+            
+            <h3>Dimensions</h3>
+            <div id="dimension-info"></div>
+            
+            <h3>Printability</h3>
+            <div id="printability-info"></div>
+            
+            <h3>Renders</h3>
+            <div class="render-gallery" id="render-gallery"></div>
+        </div>
+    </div>
+
+    <!-- Three.js for 3D viewing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    
+    <script>
+        const API_BASE = window.location.origin;
+        let scene, camera, renderer, controls, currentMesh;
+        let wireframeMode = false;
+        
+        // Initialize Three.js
+        function initViewer() {
+            const canvas = document.getElementById('viewer-3d');
+            const container = canvas.parentElement;
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1a);
+            
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 10000);
+            camera.position.set(100, 100, 100);
+            
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
+            scene.add(ambientLight);
+            
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            dirLight.position.set(1, 1, 1);
+            scene.add(dirLight);
+            
+            const dirLight2 = new THREE.DirectionalLight(0x4488ff, 0.5);
+            dirLight2.position.set(-1, -1, 0);
+            scene.add(dirLight2);
+            
+            // Grid
+            const grid = new THREE.GridHelper(200, 20, 0x333355, 0x222244);
+            grid.rotation.x = Math.PI / 2;
+            scene.add(grid);
+            
+            // Axes
+            const axes = new THREE.AxesHelper(50);
+            scene.add(axes);
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+            
+            animate();
+            checkServer();
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        function loadSTL(data) {
+            if (currentMesh) scene.remove(currentMesh);
+            
+            const loader = new THREE.STLLoader();
+            const geometry = loader.parse(data);
+            geometry.computeVertexNormals();
+            
+            const material = new THREE.MeshPhongMaterial({
+                color: 0x6488aa,
+                specular: 0x111111,
+                shininess: 50,
+                wireframe: wireframeMode
+            });
+            
+            currentMesh = new THREE.Mesh(geometry, material);
+            
+            // Center the model
+            geometry.computeBoundingBox();
+            const center = new THREE.Vector3();
+            geometry.boundingBox.getCenter(center);
+            currentMesh.position.sub(center);
+            
+            scene.add(currentMesh);
+            
+            // Fit camera
+            const size = new THREE.Vector3();
+            geometry.boundingBox.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            camera.position.set(maxDim * 1.5, maxDim * 1.5, maxDim * 1.5);
+            controls.target.set(0, 0, 0);
+            
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        function resetView() {
+            if (currentMesh) {
+                const box = new THREE.Box3().setFromObject(currentMesh);
+                const size = new THREE.Vector3();
+                box.getSize(size);
+                const maxDim = Math.max(size.x, size.y, size.z);
+                camera.position.set(maxDim * 1.5, maxDim * 1.5, maxDim * 1.5);
+                controls.target.set(0, 0, 0);
+            }
+        }
+        
+        function toggleWireframe() {
+            wireframeMode = !wireframeMode;
+            if (currentMesh) {
+                currentMesh.material.wireframe = wireframeMode;
+            }
+        }
+        
+        async function checkServer() {
+            try {
+                const resp = await fetch(`${API_BASE}/health`);
+                if (resp.ok) {
+                    document.getElementById('status').textContent = '● Connected';
+                    document.getElementById('status').style.color = '#4ecca3';
+                    loadModels();
+                }
+            } catch (e) {
+                document.getElementById('status').textContent = '○ Disconnected';
+                document.getElementById('status').style.color = '#e94560';
+            }
+        }
+        
+        async function loadModels() {
+            try {
+                const resp = await fetch(`${API_BASE}/model/list`);
+                const data = await resp.json();
+                const list = document.getElementById('model-list');
+                list.innerHTML = '';
+                
+                for (const model of (data.models || [])) {
+                    const li = document.createElement('li');
+                    li.textContent = model.name + (model.active ? ' ●' : '');
+                    li.className = model.active ? 'active' : '';
+                    li.onclick = () => selectModel(model.name);
+                    list.appendChild(li);
+                }
+            } catch (e) {
+                console.error('Failed to load models:', e);
+            }
+        }
+        
+        async function selectModel(name) {
+            try {
+                // Get measurements
+                const measureResp = await fetch(`${API_BASE}/model/${name}/measure`);
+                const measurements = await measureResp.json();
+                updateGeometryInfo(measurements);
+                
+                // Export and load STL
+                const exportResp = await fetch(`${API_BASE}/export`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, format: 'stl' })
+                });
+                const stlData = await exportResp.arrayBuffer();
+                loadSTL(stlData);
+                
+                loadModels();
+            } catch (e) {
+                console.error('Failed to load model:', e);
+            }
+        }
+        
+        async function createModel() {
+            const code = document.getElementById('code-input').value;
+            if (!code.trim()) return;
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading').textContent = 'Creating model...';
+            
+            try {
+                const resp = await fetch(`${API_BASE}/model/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: 'interactive', code })
+                });
+                const result = await resp.json();
+                
+                if (result.success) {
+                    updateGeometryInfo(result.geometry);
+                    updateDimensionInfo(result.dimensions);
+                    selectModel('interactive');
+                } else {
+                    document.getElementById('loading').textContent = 'Error: ' + (result.error || 'Unknown').substring(0, 100);
+                }
+            } catch (e) {
+                document.getElementById('loading').textContent = 'Connection error';
+            }
+        }
+        
+        async function renderViews() {
+            try {
+                const resp = await fetch(`${API_BASE}/render/all`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const result = await resp.json();
+                
+                const gallery = document.getElementById('render-gallery');
+                gallery.innerHTML = '';
+                
+                for (const [view, path] of Object.entries(result)) {
+                    const img = document.createElement('img');
+                    img.src = `${API_BASE}/renders/${path.split('/').pop()}`;
+                    img.alt = view;
+                    img.title = view;
+                    gallery.appendChild(img);
+                }
+            } catch (e) {
+                console.error('Failed to render views:', e);
+            }
+        }
+        
+        async function exportSTL() {
+            try {
+                const resp = await fetch(`${API_BASE}/export`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ format: 'stl' })
+                });
+                const blob = await resp.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'model.stl';
+                a.click();
+            } catch (e) {
+                console.error('Export failed:', e);
+            }
+        }
+        
+        function updateGeometryInfo(geometry) {
+            const el = document.getElementById('geometry-info');
+            if (!geometry) { el.innerHTML = '<div class="value">No geometry</div>'; return; }
+            
+            const bb = geometry.bounding_box || {};
+            el.innerHTML = `
+                <div class="dim">Width: <span class="value">${(bb.size?.[0] || bb.width || 0).toFixed(1)} mm</span></div>
+                <div class="dim">Depth: <span class="value">${(bb.size?.[1] || bb.depth || 0).toFixed(1)} mm</span></div>
+                <div class="dim">Height: <span class="value">${(bb.size?.[2] || bb.height || 0).toFixed(1)} mm</span></div>
+                <div class="dim">Volume: <span class="value">${((geometry.volume || geometry.volume_mm3 || 0) / 1000).toFixed(2)} cm³</span></div>
+                <div class="dim">Area: <span class="value">${((geometry.area || geometry.surface_area_mm2 || 0) / 100).toFixed(1)} cm²</span></div>
+            `;
+        }
+        
+        function updateDimensionInfo(dims) {
+            const el = document.getElementById('dimension-info');
+            if (!dims) { el.innerHTML = ''; return; }
+            
+            let html = '';
+            for (const d of (dims.all_dimensions || []).slice(0, 10)) {
+                html += `<div class="dim">${d.label} mm</div>`;
+            }
+            for (const f of (dims.features || [])) {
+                html += `<div class="dim" style="color:#e94560">${f.label} mm</div>`;
+            }
+            el.innerHTML = html;
+        }
+        
+        // Init
+        initViewer();
+    </script>
+</body>
+</html>
