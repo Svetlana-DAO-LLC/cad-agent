@@ -402,7 +402,8 @@ class Renderer:
         return output_path
     
     def _drawing_to_svg(self, drawing: Any, shape: Any, 
-                        view: ViewAngle, with_dimensions: bool) -> str:
+                        view: ViewAngle, with_dimensions: bool,
+                        metadata: dict = None) -> str:
         """Convert a build123d Drawing to SVG string with dimensions."""
         import svgwrite
         
@@ -501,6 +502,10 @@ class Renderer:
             font_family='monospace',
             fill='gray'
         ))
+        
+        # Add title block if metadata is provided
+        if metadata is not None:
+            self._add_title_block(dwg, metadata, scale)
         
         return dwg.tostring()
     
@@ -622,6 +627,85 @@ class Renderer:
             
         except Exception as e:
             print(f"Dimension annotation failed: {e}")
+
+    def _add_title_block(self, dwg, metadata: dict, scale_val: float):
+        """Add an engineering title block to the SVG."""
+        import datetime
+        
+        # Defaults
+        title = metadata.get('title', 'Untitled')
+        part_no = metadata.get('part_number', '-')
+        company = metadata.get('company', 'opago GmbH')
+        date_str = metadata.get('date', datetime.date.today().strftime('%Y-%m-%d'))
+        drawn_by = metadata.get('drawn_by', '')
+        
+        # If scale is not provided in metadata, format the calculated scale
+        scale_str = metadata.get('scale', f"Fit ({scale_val:.2f}x)")
+        
+        # Layout configuration
+        w, h = self.config.width, self.config.height
+        margin = self.config.margin
+        
+        block_w = 280
+        block_h = 100
+        
+        x = w - margin - block_w
+        y = h - margin - block_h
+        
+        # Main border
+        dwg.add(dwg.rect(insert=(x, y), size=(block_w, block_h),
+                         fill='white', stroke='black', stroke_width=1))
+        
+        # Inner lines
+        # Horizontal divider
+        dwg.add(dwg.line(start=(x, y + 60), end=(x + block_w, y + 60), stroke='black', stroke_width=0.5))
+        
+        # Vertical dividers
+        # Company / Scale section
+        dwg.add(dwg.line(start=(x + 180, y), end=(x + 180, y + 60), stroke='black', stroke_width=0.5))
+        
+        # Details section (bottom)
+        dwg.add(dwg.line(start=(x + 100, y + 60), end=(x + 100, y + 100), stroke='black', stroke_width=0.5))
+        dwg.add(dwg.line(start=(x + 190, y + 60), end=(x + 190, y + 100), stroke='black', stroke_width=0.5))
+        
+        # Helper for text
+        def add_text(text, px, py, size='12px', weight='normal', anchor='start'):
+            dwg.add(dwg.text(str(text), insert=(px, py), font_size=size,
+                             font_family='monospace', font_weight=weight, text_anchor=anchor, fill='black'))
+                             
+        def add_label(label, px, py):
+             dwg.add(dwg.text(label, insert=(px, py), font_size='9px',
+                             font_family='sans-serif', fill='gray'))
+
+        # Title (Top Left)
+        add_label("TITLE", x + 5, y + 12)
+        add_text(title, x + 5, y + 35, size='16px', weight='bold')
+        
+        # Part Number (Top Left, under Title)
+        add_label("PART NO", x + 5, y + 48)
+        add_text(part_no, x + 55, y + 50, size='12px')
+
+        # Company (Top Right)
+        add_label("COMPANY", x + 185, y + 12)
+        add_text(company, x + 185, y + 30, size='12px')
+        
+        # Scale (Top Right, under Company)
+        add_label("SCALE", x + 185, y + 48)
+        add_text(scale_str, x + 225, y + 50, size='12px')
+        
+        # Bottom row: Drawn By | Date | Sheet (omitted for now)
+        
+        # Drawn By
+        add_label("DRAWN BY", x + 5, y + 72)
+        add_text(drawn_by, x + 5, y + 90, size='12px')
+        
+        # Date
+        add_label("DATE", x + 105, y + 72)
+        add_text(date_str, x + 105, y + 90, size='12px')
+        
+        # Sheet/Rev (Rightmost bottom)
+        add_label("REV", x + 195, y + 72)
+        add_text("A", x + 195, y + 90, size='12px')
     
     def _svg_to_png(self, svg_content: str, output_path: Path):
         """Convert SVG string to PNG file."""
