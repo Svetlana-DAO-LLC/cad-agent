@@ -27,12 +27,14 @@ class MCPServer:
     def __init__(self):
         from src.cad_engine import CADEngine
         from src.renderer import Renderer, RenderConfig
+        from src.dimensioner import Dimensioner
         
         self.engine = CADEngine(workspace=Path("/workspace"))
         self.renderer = Renderer(
             config=RenderConfig(),
             output_dir=Path("/renders")
         )
+        self.dimensioner = Dimensioner()
         
         self.tools = {
             "create_model": self._create_model,
@@ -285,6 +287,12 @@ class MCPServer:
                     result["preview_base64"] = self._file_to_base64(render_path)
                 except Exception as e:
                     result["render_error"] = str(e)
+                
+                # Auto-dimension analysis
+                try:
+                    result["dimensions"] = self.dimensioner.get_dimension_summary(model.shape)
+                except Exception as e:
+                    result["dimension_error"] = str(e)
         return result
     
     def _modify_model(self, code: str, name: str = "default") -> dict:
