@@ -426,7 +426,7 @@ class Renderer:
         return dwg.tostring()
     
     def _add_svg_dimensions(self, dwg, shape, view, scale, bb_min, offset_x, offset_y):
-        """Add dimension annotations to SVG."""
+        """Add dimension annotations to SVG with proper engineering-style arrows."""
         try:
             bb = shape.bounding_box()
             
@@ -434,63 +434,112 @@ class Renderer:
             if view in ("front", "back"):
                 dim_h = abs(bb.max.X - bb.min.X)  # Width
                 dim_v = abs(bb.max.Z - bb.min.Z)  # Height
-                label_h, label_v = "Width", "Height"
             elif view in ("right", "left"):
                 dim_h = abs(bb.max.Y - bb.min.Y)  # Depth
                 dim_v = abs(bb.max.Z - bb.min.Z)  # Height
-                label_h, label_v = "Depth", "Height"
             elif view in ("top", "bottom"):
                 dim_h = abs(bb.max.X - bb.min.X)  # Width
                 dim_v = abs(bb.max.Y - bb.min.Y)  # Depth
-                label_h, label_v = "Width", "Depth"
             else:
                 return  # No dimensions for iso views
             
             margin = self.config.margin
             w, h = self.config.width, self.config.height
             
-            # Horizontal dimension (bottom)
-            y_dim = h - margin // 2
+            def draw_dimension_h(y, x1, x2, label, color='red'):
+                """Draw horizontal dimension with arrows."""
+                # Extension lines
+                dwg.add(dwg.line(start=(x1, y-8), end=(x1, y+3), stroke=color, stroke_width=0.5))
+                dwg.add(dwg.line(start=(x2, y-8), end=(x2, y+3), stroke=color, stroke_width=0.5))
+                # Dimension line
+                dwg.add(dwg.line(start=(x1, y), end=(x2, y), stroke=color, stroke_width=0.8))
+                # Arrows (triangles)
+                arrow_size = 4
+                dwg.add(dwg.polygon(
+                    points=[(x1, y), (x1+arrow_size, y-2), (x1+arrow_size, y+2)],
+                    fill=color
+                ))
+                dwg.add(dwg.polygon(
+                    points=[(x2, y), (x2-arrow_size, y-2), (x2-arrow_size, y+2)],
+                    fill=color
+                ))
+                # Label
+                dwg.add(dwg.text(
+                    label, insert=((x1+x2)/2, y-4),
+                    text_anchor='middle', font_size='11px',
+                    font_family='monospace', fill=color
+                ))
+            
+            def draw_dimension_v(x, y1, y2, label, color='blue'):
+                """Draw vertical dimension with arrows."""
+                # Extension lines
+                dwg.add(dwg.line(start=(x-8, y1), end=(x+3, y1), stroke=color, stroke_width=0.5))
+                dwg.add(dwg.line(start=(x-8, y2), end=(x+3, y2), stroke=color, stroke_width=0.5))
+                # Dimension line
+                dwg.add(dwg.line(start=(x, y1), end=(x, y2), stroke=color, stroke_width=0.8))
+                # Arrows
+                arrow_size = 4
+                dwg.add(dwg.polygon(
+                    points=[(x, y1), (x-2, y1+arrow_size), (x+2, y1+arrow_size)],
+                    fill=color
+                ))
+                dwg.add(dwg.polygon(
+                    points=[(x, y2), (x-2, y2-arrow_size), (x+2, y2-arrow_size)],
+                    fill=color
+                ))
+                # Label (rotated)
+                dwg.add(dwg.text(
+                    label, insert=(x+6, (y1+y2)/2),
+                    font_size='11px', font_family='monospace', fill=color,
+                    transform=f"rotate(90, {x+6}, {(y1+y2)/2})"
+                ))
+            
+            # Overall horizontal dimension (bottom)
+            y_dim = h - margin // 3
             x_start = offset_x
             x_end = offset_x + dim_h * scale
+            draw_dimension_h(y_dim, x_start, x_end, f"{dim_h:.1f} mm")
             
-            # Dimension line
-            dwg.add(dwg.line(
-                start=(x_start, y_dim), end=(x_end, y_dim),
-                stroke='red', stroke_width=0.8
-            ))
-            # Arrows
-            dwg.add(dwg.line(start=(x_start, y_dim-4), end=(x_start, y_dim+4), stroke='red', stroke_width=0.8))
-            dwg.add(dwg.line(start=(x_end, y_dim-4), end=(x_end, y_dim+4), stroke='red', stroke_width=0.8))
-            # Label
-            dwg.add(dwg.text(
-                f"{dim_h:.1f} mm",
-                insert=((x_start + x_end) / 2, y_dim - 5),
-                text_anchor='middle',
-                font_size='12px',
-                font_family='monospace',
-                fill='red'
-            ))
-            
-            # Vertical dimension (right side)
-            x_dim = w - margin // 2
+            # Overall vertical dimension (right side)
+            x_dim = w - margin // 3
             y_start = offset_y
             y_end = offset_y + dim_v * scale
+            draw_dimension_v(x_dim, y_start, y_end, f"{dim_v:.1f} mm")
             
-            dwg.add(dwg.line(
-                start=(x_dim, y_start), end=(x_dim, y_end),
-                stroke='blue', stroke_width=0.8
-            ))
-            dwg.add(dwg.line(start=(x_dim-4, y_start), end=(x_dim+4, y_start), stroke='blue', stroke_width=0.8))
-            dwg.add(dwg.line(start=(x_dim-4, y_end), end=(x_dim+4, y_end), stroke='blue', stroke_width=0.8))
-            dwg.add(dwg.text(
-                f"{dim_v:.1f} mm",
-                insert=(x_dim + 5, (y_start + y_end) / 2),
-                font_size='12px',
-                font_family='monospace',
-                fill='blue',
-                transform=f"rotate(90, {x_dim + 5}, {(y_start + y_end) / 2})"
-            ))
+            # Try to add feature dimensions from dimensioner
+            try:
+                from src.dimensioner import Dimensioner
+                dimensioner = Dimensioner()
+                dims = dimensioner._cylindrical_dimensions(shape)
+                
+                for dim in dims[:3]:  # Max 3 diameter annotations
+                    # Project the dimension center to the current view
+                    cx, cy, cz = dim.start
+                    if view in ("front", "back"):
+                        px = (cx - bb.min.X) * scale + offset_x
+                        py = (bb.max.Z - cz) * scale + offset_y  # Flip Z
+                    elif view in ("right", "left"):
+                        px = (cy - bb.min.Y) * scale + offset_x
+                        py = (bb.max.Z - cz) * scale + offset_y
+                    elif view in ("top", "bottom"):
+                        px = (cx - bb.min.X) * scale + offset_x
+                        py = (cy - bb.min.Y) * scale + offset_y
+                    else:
+                        continue
+                    
+                    # Draw diameter annotation
+                    r_px = dim.value / 2 * scale
+                    dwg.add(dwg.circle(
+                        center=(px, py), r=r_px,
+                        stroke='green', stroke_width=0.5, fill='none',
+                        stroke_dasharray='2,2'
+                    ))
+                    dwg.add(dwg.text(
+                        dim.label, insert=(px + r_px + 3, py),
+                        font_size='10px', font_family='monospace', fill='green'
+                    ))
+            except Exception:
+                pass  # Feature dimensions are optional
             
         except Exception as e:
             print(f"Dimension annotation failed: {e}")
