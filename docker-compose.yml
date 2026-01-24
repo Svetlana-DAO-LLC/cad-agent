@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  cad-agent:
+    build: .
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./workspace:/workspace
+      - ./renders:/renders
+    environment:
+      - PYOPENGL_PLATFORM=osmesa
+      - DISPLAY=:99
+    command: serve
+    restart: unless-stopped
+    
+  # Development mode: mount source for live reload
+  cad-agent-dev:
+    build: .
+    ports:
+      - "8124:8123"
+    volumes:
+      - ./src:/app/src
+      - ./workspace:/workspace
+      - ./renders:/renders
+    environment:
+      - PYOPENGL_PLATFORM=osmesa
+      - DISPLAY=:99
+    command: serve
+    profiles:
+      - dev

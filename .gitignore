@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+renders/
+workspace/
+*.stl
+*.step
+*.3mf
+.DS_Store
