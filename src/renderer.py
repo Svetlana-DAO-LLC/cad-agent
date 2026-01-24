@@ -88,7 +88,8 @@ class Renderer:
     def render_2d(self, shape: Any, view: ViewAngle = "front",
                   with_dimensions: bool = True,
                   with_hidden: bool = True,
-                  filename: str = "render_2d.png") -> Path:
+                  filename: str = "render_2d.png",
+                  metadata: dict = None) -> Path:
         """
         Render a 2D technical drawing view using build123d's HLR projection.
         """
@@ -106,7 +107,7 @@ class Renderer:
         drawing = Drawing(shape, look_from=look_from, look_up=look_up, with_hidden=with_hidden)
         
         # Render to SVG then convert to PNG
-        svg_content = self._drawing_to_svg(drawing, shape, view, with_dimensions)
+        svg_content = self._drawing_to_svg(drawing, shape, view, with_dimensions, metadata)
         self._svg_to_png(svg_content, output_path)
         
         return output_path
@@ -158,6 +159,8 @@ class Renderer:
         """Render all standard views. Returns dict of view_name -> path."""
         results = {}
         
+        metadata = {"title": name, "part_number": name}
+        
         # 3D isometric
         results["3d_iso"] = self.render_3d(shape, "iso", f"{name}_3d_iso.png")
         results["3d_iso_back"] = self.render_3d(shape, "iso_back", f"{name}_3d_iso_back.png")
@@ -165,7 +168,8 @@ class Renderer:
         # 2D technical drawings
         for view in ["front", "right", "top"]:
             results[f"2d_{view}"] = self.render_2d(
-                shape, view, with_dimensions=True, filename=f"{name}_2d_{view}.png"
+                shape, view, with_dimensions=True, filename=f"{name}_2d_{view}.png",
+                metadata=metadata
             )
         
         # Multi-view composite
@@ -264,13 +268,23 @@ class Renderer:
         return output_path
     
     def _render_3d_matplotlib(self, shape: Any, view: ViewAngle, output_path: Path) -> Path:
-        """Last-resort render using matplotlib 3D wireframe."""
+        """Last-resort render using matplotlib 3D wireframe with custom shading."""
         import matplotlib
         matplotlib.use('Agg')
         import matplotlib.pyplot as plt
         from mpl_toolkits.mplot3d.art3d import Poly3DCollection
         
         mesh = self._shape_to_trimesh(shape)
+        
+        # Calculate view parameters first to sort faces
+        look_from = np.array(VIEW_DIRECTIONS[view], dtype=float)
+        look_from = look_from / np.linalg.norm(look_from)
+        
+        # Camera position (approximate for sorting)
+        bounds = mesh.bounds
+        center = (bounds[0] + bounds[1]) / 2
+        size = np.linalg.norm(bounds[1] - bounds[0])
+        cam_pos = center + look_from * size * 2.0
         
         fig = plt.figure(figsize=(self.config.width / 100, self.config.height / 100), dpi=100)
         ax = fig.add_subplot(111, projection='3d')
@@ -282,22 +296,74 @@ class Renderer:
         # Subsample if too many faces
         max_faces = 5000
         if len(faces) > max_faces:
+            # Deterministic subsampling
+            np.random.seed(42)
             indices = np.random.choice(len(faces), max_faces, replace=False)
             faces_subset = faces[indices]
         else:
             faces_subset = faces
+            
+        # Get actual triangles
+        triangles = vertices[faces_subset]
+        
+        # Calculate face normals and centers for shading and sorting
+        # Vectors for two edges of each triangle
+        v0 = triangles[:, 0, :]
+        v1 = triangles[:, 1, :]
+        v2 = triangles[:, 2, :]
+        
+        # Face centers
+        centers = (v0 + v1 + v2) / 3.0
+        
+        # Normals (cross product of edges)
+        normals = np.cross(v1 - v0, v2 - v0)
+        # Normalize
+        norms = np.linalg.norm(normals, axis=1)
+        # Avoid division by zero
+        norms[norms == 0] = 1.0
+        normals = normals / norms[:, np.newaxis]
+        
+        # Sorting: Calculate distance to camera for Painter's algorithm
+        # Project centers onto look vector (depth)
+        # We want to draw furthest faces first
+        dists = np.dot(centers - cam_pos, -look_from)
+        sort_indices = np.argsort(dists)
+        
+        triangles = triangles[sort_indices]
+        normals = normals[sort_indices]
+        
+        # Lighting calculation
+        # Light coming from top-right-front
+        light_dir = np.array([1.0, 1.0, 1.0])
+        light_dir = light_dir / np.linalg.norm(light_dir)
+        
+        # Lambertian shading: max(0, dot(normal, light))
+        # We add some ambient light so back faces aren't pitch black
+        intensity = np.dot(normals, light_dir)
+        intensity = 0.5 + 0.5 * intensity  # Map -1..1 to 0..1 roughly, but keep contrast
+        intensity = np.clip(intensity, 0.2, 1.0)  # Min ambient 0.2
+        
+        # Base color
+        base_color = np.array(self.config.face_color) / 255.0
+        
+        # Apply intensity to base color for each face
+        # shape: (N, 3)
+        face_colors = np.outer(intensity, base_color)
+        
+        # Ensure alpha is handled if provided in config, otherwise 1.0
+        alpha = self.config.face_opacity
         
         poly = Poly3DCollection(
-            vertices[faces_subset],
-            alpha=self.config.face_opacity,
-            facecolor=np.array(self.config.face_color) / 255.0,
+            triangles,
+            alpha=alpha,
+            facecolors=face_colors,
             edgecolor=np.array(self.config.edge_color) / 255.0,
-            linewidth=0.1
+            linewidth=0.1,
+            shade=False # We computed our own shading
         )
         ax.add_collection3d(poly)
         
         # Set view angle
-        look_from = VIEW_DIRECTIONS[view]
         elev = math.degrees(math.atan2(look_from[2], math.sqrt(look_from[0]**2 + look_from[1]**2)))
         azim = math.degrees(math.atan2(look_from[1], look_from[0]))
         ax.view_init(elev=elev, azim=azim)
@@ -305,7 +371,7 @@ class Renderer:
         # Set axis limits
         bounds = mesh.bounds
         max_range = np.max(bounds[1] - bounds[0]) / 2
-        center = (bounds[0] + bounds[1]) / 2
+        # center calculated above
         ax.set_xlim(center[0] - max_range, center[0] + max_range)
         ax.set_ylim(center[1] - max_range, center[1] + max_range)
         ax.set_zlim(center[2] - max_range, center[2] + max_range)
@@ -313,7 +379,20 @@ class Renderer:
         ax.set_xlabel('X (mm)')
         ax.set_ylabel('Y (mm)')
         ax.set_zlabel('Z (mm)')
-        ax.set_title(f'{view.upper()} view')
+        # ax.set_title(f'{view.upper()} view') # Title block handles metadata now
+        
+        # Remove background/grid for cleaner look if requested
+        if not self.config.show_grid:
+            ax.grid(False)
+            ax.xaxis.pane.fill = False
+            ax.yaxis.pane.fill = False
+            ax.zaxis.pane.fill = False
+            ax.xaxis.pane.set_edgecolor('w')
+            ax.yaxis.pane.set_edgecolor('w')
+            ax.zaxis.pane.set_edgecolor('w')
+            
+        if not self.config.show_axes:
+            ax.set_axis_off()
         
         plt.tight_layout()
         plt.savefig(output_path, dpi=100, bbox_inches='tight',
