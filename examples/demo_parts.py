@@ -148,6 +148,76 @@ with BuildPart() as bracket:
 
 result = bracket.part
 ''',
+
+    "flange": '''
+from build123d import *
+
+# Pipe Flange with bolt circle
+outer_d = 80
+inner_d = 30
+thickness = 10
+bolt_circle_d = 60
+bolt_count = 6
+bolt_hole_d = 6
+
+with BuildPart() as flange:
+    # Main disk
+    Cylinder(outer_d/2, thickness)
+    
+    # Center bore
+    Cylinder(inner_d/2, thickness, mode=Mode.SUBTRACT)
+    
+    # Bolt holes
+    with Locations((0, 0, 0)):
+        with PolarLocations(bolt_circle_d/2, bolt_count):
+            Cylinder(bolt_hole_d/2, thickness, mode=Mode.SUBTRACT)
+    
+    # Chamfer outer edge
+    chamfer(flange.edges().filter_by(GeomType.CIRCLE).group_by(Axis.Z)[-1], length=1)
+
+result = flange.part
+''',
+
+    "hinge_half": '''
+from build123d import *
+
+# Simple hinge half
+width = 40
+length = 40
+thickness = 3
+pin_diameter = 4
+knuckle_length = 10
+knuckle_count = 3
+
+with BuildPart() as hinge:
+    # Plate
+    Box(width, length, thickness, align=(Align.CENTER, Align.MIN, Align.MIN))
+    
+    # Knuckles
+    with Locations((0, length, thickness/2)):
+        with BuildSketch(Plane.YZ):
+            with Locations((0, 0)):
+                Circle(thickness + pin_diameter/2)
+        extrude(amount=width, both=True)
+    
+    # Cutouts for knuckles
+    # This is a simplified "half" that would interlock with itself
+    cut_width = width / knuckle_count
+    with Locations((-width/2 + cut_width/2, length, thickness/2)):
+        with GridLocations(cut_width*2, 0, 2, 1):
+            Box(cut_width, (thickness + pin_diameter)*2, (thickness + pin_diameter)*2, mode=Mode.SUBTRACT)
+
+    # Pin hole
+    with Locations((0, length, thickness/2)):
+         Cylinder(pin_diameter/2, width, rotation=(0, 90, 0), mode=Mode.SUBTRACT)
+
+    # Mounting holes
+    with Locations((0, length/2, 0)):
+        with GridLocations(width-15, length-15, 2, 2):
+            Hole(3.5/2, thickness)
+
+result = hinge.part
+'''
 }
 
 

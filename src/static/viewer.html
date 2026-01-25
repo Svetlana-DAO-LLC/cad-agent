@@ -146,7 +146,10 @@
             <div class="code-input">
                 <h3>Create Model</h3>
                 <textarea id="code-input" placeholder="from build123d import *&#10;result = Box(30, 20, 10)"></textarea>
-                <button onclick="createModel()">▶ Execute</button>
+                <div style="display: flex; gap: 8px;">
+                    <button onclick="createModel()" style="flex: 2;">▶ Execute</button>
+                    <button onclick="clearCode()" style="flex: 1; background: #444;">Clear</button>
+                </div>
             </div>
         </div>
         
@@ -157,6 +160,8 @@
                 <button onclick="resetView()">⟲ Reset</button>
                 <button onclick="toggleWireframe()">◫ Wire</button>
                 <button onclick="exportSTL()">⬇ STL</button>
+                <button onclick="exportSTEP()">⬇ STEP</button>
+                <button onclick="export3MF()">⬇ 3MF</button>
                 <button onclick="renderViews()">📐 Views</button>
             </div>
         </div>
@@ -344,10 +349,15 @@
                 const stlData = await exportResp.arrayBuffer();
                 loadSTL(stlData);
                 
+                // Refresh list to show active status
                 loadModels();
             } catch (e) {
                 console.error('Failed to load model:', e);
             }
+        }
+        
+        function clearCode() {
+            document.getElementById('code-input').value = '';
         }
         
         async function createModel() {
@@ -402,20 +412,42 @@
         }
         
         async function exportSTL() {
+            await exportFormat('stl');
+        }
+
+        async function exportSTEP() {
+            await exportFormat('step');
+        }
+
+        async function export3MF() {
+            await exportFormat('3mf');
+        }
+        
+        async function exportFormat(format) {
             try {
+                // If interactive code is active, ensure it's selected/current
+                // but really we just export whatever is the 'active' model on server
+                // or we could pass the name.
+                // The current API 'export' takes {name, format}.
+                // If name is missing, it exports active model.
+                
                 const resp = await fetch(`${API_BASE}/export`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ format: 'stl' })
+                    body: JSON.stringify({ format: format })
                 });
+                
+                if (!resp.ok) throw new Error(await resp.text());
+                
                 const blob = await resp.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'model.stl';
+                a.download = `model.${format}`;
                 a.click();
             } catch (e) {
                 console.error('Export failed:', e);
+                alert(`Export failed: ${e.message}`);
             }
         }
         
