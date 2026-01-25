@@ -34,7 +34,7 @@ The feedback loop is immediate. The agent creates, sees, evaluates, and iterates
 
 If CAD Agent helps you build things, consider sponsoring its development:
 
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?style=for-the-badge&logo=github)](https://github.com/sponsors/MichaelAntonFischer)
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?style=for-the-badge&logo=github)](https://github.com/sponsors/Svetlana-DAO-LLC)
 
 Your support keeps this project maintained and freely available.
 
@@ -163,15 +163,18 @@ The agent stays in the loop. No manual screenshot passing. No blind iteration.
 
 ## License
 
+**PolyForm Small Business License 1.0.0 + Perimeter**
+
 **Free for:**
-- ✅ Personal use
-- ✅ Educational use
-- ✅ Open source projects
-- ✅ Small businesses
+- ✅ Individuals (any use)
+- ✅ Small businesses (<100 people AND <$1M revenue)
 
 **Requires commercial license:**
-- ❌ Enterprise use (companies with >50 employees or >$1M annual revenue)
-- ❌ Offering this software as a hosted service (SaaS)
-- ❌ Reselling or redistributing commercially
+- ❌ Organizations with ≥100 people OR ≥$1M revenue
+- ❌ Competing products or services (Perimeter restriction)
 
-See [LICENSE](LICENSE) for full terms. For enterprise licensing, contact the author via [GitHub Sponsors](https://github.com/sponsors/MichaelAntonFischer).
+See [LICENSE](LICENSE) for full terms and [NOTICES.md](NOTICES.md) for third-party attributions.
+
+**Commercial licensing:** Contact via [GitHub Sponsors](https://github.com/sponsors/Svetlana-DAO-LLC)
+
+Copyright (c) 2025 Svetlana DAO LLC

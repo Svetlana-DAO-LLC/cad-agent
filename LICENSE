@@ -1,49 +1,115 @@
 # CAD Agent License
 
-Copyright (c) 2025 Michael Anton Fischer
+Copyright (c) 2025 Svetlana DAO LLC
 
-## Grant of License
+This software is licensed under the PolyForm Small Business License 1.0.0,
+with the additional PolyForm Perimeter restriction.
 
-Permission is hereby granted, free of charge, to any person or organization 
-obtaining a copy of this software and associated documentation files (the 
-"Software"), to use, copy, modify, and distribute the Software, subject to 
-the following conditions:
+## PolyForm Small Business License 1.0.0
 
-## Permitted Use
+https://polyformproject.org/licenses/small-business/1.0.0/
 
-The following uses are permitted without payment:
+### Acceptance
 
-1. **Personal use** — individuals using the Software for personal projects
-2. **Educational use** — students, teachers, and educational institutions
-3. **Open source projects** — projects released under OSI-approved licenses
-4. **Small business use** — companies with fewer than 50 employees AND 
-   less than $1,000,000 USD in annual revenue
+In order to get any license under these terms, you must agree to them as
+both strict obligations and conditions to all your licenses.
 
-## Commercial License Required
+### Copyright License
 
-The following uses require a separate commercial license:
+The licensor grants you a copyright license for the software to do
+everything you might do with the software that would otherwise infringe
+the licensor's copyright in it for any permitted purpose. However, you may
+only distribute the software according to Distribution License and make
+changes or new works based on the software according to Changes and New
+Works License.
 
-1. **Enterprise use** — any organization with 50 or more employees OR 
-   more than $1,000,000 USD in annual revenue
-2. **SaaS offerings** — offering the Software's functionality as a 
-   hosted or cloud service to third parties
-3. **Resale** — redistributing the Software commercially, whether 
-   standalone or bundled with other products
+### Distribution License
 
-For commercial licensing inquiries, contact the author via:
-https://github.com/sponsors/MichaelAntonFischer
+The licensor grants you an additional copyright license to distribute
+copies of the software. Your license to distribute covers distributing the
+software with changes and new works permitted by Changes and New Works
+License.
 
-## Conditions
+### Notices
 
-- This license notice shall be included in all copies or substantial 
-  portions of the Software.
-- The Software is provided "as is", without warranty of any kind.
-- The author shall not be liable for any damages arising from the use 
-  of this Software.
+You must ensure that anyone who gets a copy of any part of the software
+from you also gets a copy of these terms or the URL for them above, as
+well as copies of any plain-text lines beginning with Required Notice:
+that the licensor provided with the software.
 
-## Determining Business Size
+Required Notice: Copyright (c) 2025 Svetlana DAO LLC
+                 https://github.com/Svetlana-DAO-LLC/cad-agent
 
-For the purpose of this license:
-- "Employees" includes full-time, part-time, and contract workers
-- "Annual revenue" means gross revenue in the most recent fiscal year
-- Parent companies and subsidiaries are counted together
+### Changes and New Works License
+
+The licensor grants you an additional copyright license to make changes
+and new works based on the software for any permitted purpose.
+
+### Patent License
+
+The licensor grants you a patent license for the software that covers
+patent claims the licensor can license, or becomes able to license, that
+you would infringe by using the software.
+
+### Small Business
+
+Use by individuals and small businesses is use for a permitted purpose.
+
+A "small business" is an organization with fewer than 100 total
+individuals, including employees, contractors, and agents, AND less than
+$1,000,000 (one million) US dollars total revenue in the prior tax year.
+
+### No Other Rights
+
+These terms do not allow you to sublicense or transfer any of your
+licenses to anyone else, or prevent the licensor from granting licenses to
+anyone else. These terms do not imply any other licenses.
+
+### Patent Defense
+
+If you make any written claim that the software infringes or contributes
+to infringement of any patent, your patent license for the software
+granted under these terms ends immediately.
+
+### Violations
+
+The first time you are notified in writing that you have violated any of
+these terms, or done anything with the software not covered by your
+licenses, your licenses can nonetheless continue if you come into full
+compliance with these terms, and take practical steps to correct past
+violations, within 32 days of receiving notice. Otherwise, all your
+licenses end immediately.
+
+### No Liability
+
+As far as the law allows, the software comes as is, without any warranty
+or condition, and the licensor will not be liable to you for any damages
+arising out of these terms or the use or nature of the software, under
+any kind of legal claim.
+
+### Definitions
+
+The "licensor" is the entity offering these terms, and the "software" is
+the software the licensor makes available under these terms.
+
+"You" refers to the individual or entity agreeing to these terms.
+
+"Your company" is any legal entity, sole proprietorship, or other kind of
+organization that you work for, plus all organizations that have control
+over, are under the control of, or are under common control with that
+organization.
+
+---
+
+## Additional Restriction: PolyForm Perimeter
+
+In addition to the terms above, you may not use this software to create
+or offer a product or service that competes with the software or any
+product or service the licensor offers using the software.
+
+---
+
+## Third-Party Components
+
+This software includes components under other open source licenses.
+See NOTICES.md for details and required attributions.

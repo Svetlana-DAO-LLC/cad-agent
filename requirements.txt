@@ -5,7 +5,6 @@ build123d>=0.8.0
 trimesh>=4.0.0
 numpy>=2.0.0
 Pillow>=10.0.0
-matplotlib>=3.8.0
 
 # 2D export
 svgwrite>=1.4.0
