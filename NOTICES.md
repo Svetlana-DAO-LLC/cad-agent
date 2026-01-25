@@ -121,6 +121,26 @@ the right to replace the library with a modified version.
 
 ---
 
+## Matplotlib
+
+- **License:** PSF-based License (BSD-compatible)
+- **Copyright:** Copyright (c) 2002-2024 Matplotlib Development Team
+- **URL:** https://matplotlib.org/
+
+Used for 2D technical drawing/blueprint generation.
+
+---
+
+## ezdxf
+
+- **License:** MIT License
+- **Copyright:** Copyright (c) 2010-2024 Manfred Moitzi
+- **URL:** https://ezdxf.mozman.at/
+
+Used for DXF export of 2D technical drawings.
+
+---
+
 ## Full License Texts
 
 The full text of referenced licenses can be found at:

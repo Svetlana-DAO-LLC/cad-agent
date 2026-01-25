@@ -102,6 +102,10 @@ curl -X POST http://localhost:8123/render/multiview \
 # 2D orthographic with dimensions
 curl -X POST http://localhost:8123/render/2d \
   -d '{"model_name": "bracket", "view": "front"}' -o bracket_2d.png
+
+# Complete 2D technical blueprint (multiple views + specs)
+curl -X POST http://localhost:8123/render/blueprint \
+  -d '{"model_name": "bracket", "views": ["front", "right", "top", "bottom"]}' -o bracket_blueprint.png
 ```
 
 ### Export for Printing
@@ -121,8 +125,9 @@ curl -X POST http://localhost:8123/export \
 | `/model/list` | GET | List all models in session |
 | `/model/{name}/measure` | GET | Get bounding box & dimensions |
 | `/render/3d` | POST | 3D shaded render (VTK) |
-| `/render/2d` | POST | 2D technical drawing (build123d) |
-| `/render/multiview` | POST | 4-view composite |
+| `/render/2d` | POST | Single 2D orthographic view (matplotlib) |
+| `/render/blueprint` | POST | Complete 2D technical blueprint with dimensions |
+| `/render/multiview` | POST | 4-view 3D composite |
 | `/export` | POST | Export STL/STEP/3MF |
 | `/analyze/printability` | POST | Manifold/watertight check |
 

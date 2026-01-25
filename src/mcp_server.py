@@ -28,6 +28,7 @@ class MCPServer:
         from src.cad_engine import CADEngine
         from src.renderer import Renderer, RenderConfig
         from src.dimensioner import Dimensioner
+        from src.blueprint_renderer import BlueprintRenderer
         
         self.engine = CADEngine(workspace=Path("/workspace"))
         self.renderer = Renderer(
@@ -35,12 +36,14 @@ class MCPServer:
             output_dir=Path("/renders")
         )
         self.dimensioner = Dimensioner()
+        self.blueprint_renderer = BlueprintRenderer(output_dir="/renders")
         
         self.tools = {
             "create_model": self._create_model,
             "modify_model": self._modify_model,
             "render_3d": self._render_3d,
             "render_2d": self._render_2d,
+            "render_blueprint": self._render_blueprint,
             "render_multiview": self._render_multiview,
             "render_all": self._render_all,
             "export_model": self._export_model,
@@ -189,7 +192,7 @@ class MCPServer:
             },
             {
                 "name": "render_2d",
-                "description": "Render a 2D technical drawing with visible/hidden lines and dimension annotations.",
+                "description": "Render a single 2D orthographic view with dimension annotations using matplotlib.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -197,6 +200,19 @@ class MCPServer:
                         "view": {"type": "string", "enum": ["front", "back", "left", "right", "top", "bottom"], "description": "Orthographic view"},
                         "with_dimensions": {"type": "boolean", "description": "Show dimension annotations (default: true)"},
                         "with_hidden": {"type": "boolean", "description": "Show hidden lines (default: true)"},
+                    }
+                }
+            },
+            {
+                "name": "render_blueprint",
+                "description": "Render a complete 2D technical blueprint with multiple orthographic views (front, side, top, bottom) and specifications panel. Uses matplotlib for reliable rendering with STL/mesh models.",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Model name"},
+                        "views": {"type": "array", "items": {"type": "string"}, "description": "List of views to include (default: front, right, top, bottom)"},
+                        "title": {"type": "string", "description": "Drawing title"},
+                        "specs": {"type": "string", "description": "Custom specifications text for the specs panel"},
                     }
                 }
             },
@@ -313,15 +329,48 @@ class MCPServer:
     
     def _render_2d(self, name: str = None, view: str = "front",
                    with_dimensions: bool = True, with_hidden: bool = True) -> dict:
+        """Render a single 2D orthographic view using matplotlib-based blueprint renderer."""
         model = self.engine.get_model(name)
         if not model or not model.shape:
             return {"error": f"No model '{name or 'active'}' found"}
         
         filename = f"{model.name}_2d_{view}.png"
-        path = self.renderer.render_2d(model.shape, view, with_dimensions, with_hidden, filename)
+        # Use matplotlib-based blueprint renderer (faster, works with STL meshes)
+        path = self.blueprint_renderer.render_blueprint(
+            model.shape, 
+            filename=filename,
+            title=f"{model.name.upper()} - {view.upper()} VIEW",
+            views=[view]
+        )
         return {
             "path": str(path),
             "view": view,
+            "base64": self._file_to_base64(path)
+        }
+    
+    def _render_blueprint(self, name: str = None, views: list = None,
+                          title: str = None, specs: str = None) -> dict:
+        """Render a complete 2D technical blueprint with multiple orthographic views."""
+        model = self.engine.get_model(name)
+        if not model or not model.shape:
+            return {"error": f"No model '{name or 'active'}' found"}
+        
+        if views is None:
+            views = ['front', 'right', 'top', 'bottom']
+        if title is None:
+            title = model.name.upper().replace('_', ' ')
+        
+        filename = f"{model.name}_blueprint.png"
+        path = self.blueprint_renderer.render_blueprint(
+            model.shape,
+            filename=filename,
+            title=title,
+            views=views,
+            custom_specs=specs
+        )
+        return {
+            "path": str(path),
+            "views": views,
             "base64": self._file_to_base64(path)
         }
     
