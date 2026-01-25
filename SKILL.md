@@ -38,6 +38,8 @@ docker-compose up -d
 # Verify: curl http://localhost:8123/health
 ```
 
+> **Docker-in-Docker caveat:** In nested container environments (e.g., Clawdbot sandbox), host networking may not work—`curl localhost:8123` will fail even though the server binds to `0.0.0.0:8123`. Use `docker exec cad-agent python3 -c "..."` commands instead. On a normal Docker host, localhost access works fine.
+
 ## Workflow
 
 ### 1. Create Model
