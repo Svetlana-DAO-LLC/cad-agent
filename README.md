@@ -28,6 +28,18 @@ Agent: *sees the render* "The hole is off-center, let me fix that..."
 
 The feedback loop is immediate. The agent creates, sees, evaluates, and iterates — without human screenshot relay.
 
+---
+
+### 💖 Support This Project
+
+If CAD Agent helps you build things, consider sponsoring its development:
+
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?style=for-the-badge&logo=github)](https://github.com/sponsors/MichaelAntonFischer)
+
+Your support keeps this project maintained and freely available.
+
+---
+
 ## Architecture
 
 **All CAD logic runs inside the container.** The external AI agent only:
@@ -151,6 +163,15 @@ The agent stays in the loop. No manual screenshot passing. No blind iteration.
 
 ## License
 
-Polyform Noncommercial 1.0.0 — See https://polyformproject.org/licenses/noncommercial/1.0.0
+**Free for:**
+- ✅ Personal use
+- ✅ Educational use
+- ✅ Open source projects
+- ✅ Small businesses
 
-Free for personal, educational, and open-source use. Contact author for commercial licensing.
+**Requires commercial license:**
+- ❌ Enterprise use (companies with >50 employees or >$1M annual revenue)
+- ❌ Offering this software as a hosted service (SaaS)
+- ❌ Reselling or redistributing commercially
+
+See [LICENSE](LICENSE) for full terms. For enterprise licensing, contact the author via [GitHub Sponsors](https://github.com/sponsors/MichaelAntonFischer).

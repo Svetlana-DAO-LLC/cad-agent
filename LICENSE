@@ -1,3 +1,49 @@
-Polyform Noncommercial 1.0.0
+# CAD Agent License
 
-See https://polyformproject.org/licenses/noncommercial/1.0.0
+Copyright (c) 2025 Michael Anton Fischer
+
+## Grant of License
+
+Permission is hereby granted, free of charge, to any person or organization 
+obtaining a copy of this software and associated documentation files (the 
+"Software"), to use, copy, modify, and distribute the Software, subject to 
+the following conditions:
+
+## Permitted Use
+
+The following uses are permitted without payment:
+
+1. **Personal use** — individuals using the Software for personal projects
+2. **Educational use** — students, teachers, and educational institutions
+3. **Open source projects** — projects released under OSI-approved licenses
+4. **Small business use** — companies with fewer than 50 employees AND 
+   less than $1,000,000 USD in annual revenue
+
+## Commercial License Required
+
+The following uses require a separate commercial license:
+
+1. **Enterprise use** — any organization with 50 or more employees OR 
+   more than $1,000,000 USD in annual revenue
+2. **SaaS offerings** — offering the Software's functionality as a 
+   hosted or cloud service to third parties
+3. **Resale** — redistributing the Software commercially, whether 
+   standalone or bundled with other products
+
+For commercial licensing inquiries, contact the author via:
+https://github.com/sponsors/MichaelAntonFischer
+
+## Conditions
+
+- This license notice shall be included in all copies or substantial 
+  portions of the Software.
+- The Software is provided "as is", without warranty of any kind.
+- The author shall not be liable for any damages arising from the use 
+  of this Software.
+
+## Determining Business Size
+
+For the purpose of this license:
+- "Employees" includes full-time, part-time, and contract workers
+- "Annual revenue" means gross revenue in the most recent fiscal year
+- Parent companies and subsidiaries are counted together
