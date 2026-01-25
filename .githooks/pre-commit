@@ -1,0 +1,28 @@
+#!/bin/bash
+# Pre-commit hook: Prevent accidental commit of CAD files
+# This protects YOUR designs from being published by your AI agent
+
+CAD_EXTENSIONS="\.stl$|\.step$|\.stp$|\.3mf$|\.obj$|\.iges$|\.igs$|\.brep$"
+
+# Check staged files for CAD extensions
+BLOCKED_FILES=$(git diff --cached --name-only | grep -iE "$CAD_EXTENSIONS" || true)
+
+if [ -n "$BLOCKED_FILES" ]; then
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║  🛑 BLOCKED: CAD files detected in commit                    ║"
+    echo "╠══════════════════════════════════════════════════════════════╣"
+    echo "║  These safeguards protect YOUR designs from accidental       ║"
+    echo "║  publication. Your CAD files stay private on your machine.   ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Blocked files:"
+    echo "$BLOCKED_FILES" | sed 's/^/  - /'
+    echo ""
+    echo "To commit anyway (not recommended):"
+    echo "  git commit --no-verify"
+    echo ""
+    exit 1
+fi
+
+exit 0
