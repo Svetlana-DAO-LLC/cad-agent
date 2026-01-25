@@ -119,6 +119,11 @@ def test_direct_export():
     assert step_path.exists()
     assert step_path.stat().st_size > 100
 
+    # 3MF
+    threemf_path = engine.export_model("test_export", "3mf")
+    assert threemf_path.exists()
+    assert threemf_path.stat().st_size > 100
+
 
 def test_printability():
     """Test printability analysis."""

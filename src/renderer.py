@@ -627,8 +627,6 @@ class Renderer:
             
         except Exception as e:
             print(f"Dimension annotation failed: {e}")
-            import traceback
-            traceback.print_exc()
 
     def _add_title_block(self, dwg, metadata: dict, scale_val: float):
         """Add an engineering title block to the SVG."""

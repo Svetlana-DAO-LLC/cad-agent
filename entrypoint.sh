@@ -12,7 +12,12 @@ case "$1" in
         ;;
     test)
         echo "Running self-test..."
-        exec python -c "
+        if python -c "import pytest" 2>/dev/null; then
+            echo "Running pytest..."
+            exec python -m pytest tests/ -v
+        else
+            echo "Pytest not found, running legacy self-test..."
+            exec python -c "
 from src.cad_engine import CADEngine
 from src.renderer import Renderer
 
@@ -43,6 +48,7 @@ if result['success']:
     
     print('\\nAll tests PASSED ✓')
 "
+        fi
         ;;
     shell)
         exec /bin/bash
