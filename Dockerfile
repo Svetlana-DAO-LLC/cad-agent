@@ -1,6 +1,6 @@
 FROM python:3.11-slim-bookworm
 
-# Install system dependencies for OpenCascade + headless rendering + cairo
+# Install system dependencies for OpenCascade + headless rendering + cairo + VTK
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-glx \
     libglib2.0-0 \
@@ -16,13 +16,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgdk-pixbuf-2.0-0 \
     librsvg2-2 \
     fonts-dejavu-core \
+    fonts-dejavu-extra \
     pkg-config \
+    # VTK/headless rendering dependencies
+    xvfb \
+    libosmesa6 \
+    libosmesa6-dev \
+    libglu1-mesa \
+    libgomp1 \
+    libegl1-mesa \
     && rm -rf /var/lib/apt/lists/*
 
-# Set environment for headless matplotlib
+# Set environment for headless rendering
 ENV MPLBACKEND=Agg
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# VTK offscreen rendering with Xvfb
+ENV DISPLAY=:99
 
 WORKDIR /app
 

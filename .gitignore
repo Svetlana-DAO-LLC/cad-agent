@@ -8,3 +8,4 @@ workspace/
 *.step
 *.3mf
 .DS_Store
+node_modules/

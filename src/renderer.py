@@ -70,10 +70,21 @@ class Renderer:
     def render_3d(self, shape: Any, view: ViewAngle = "iso",
                   filename: str = "render_3d.png") -> Path:
         """
-        Render a 3D view of the shape using trimesh + pyrender.
-        Falls back to wireframe if pyrender/OSMesa unavailable.
+        Render a 3D view of the shape using VTK (primary) with fallbacks.
+        
+        Render priority:
+        1. VTK with Xvfb (best quality, proper orthographic projection)
+        2. pyrender with OSMesa
+        3. trimesh built-in renderer
+        4. matplotlib 3D (last resort)
         """
         output_path = self.output_dir / filename
+        
+        # Try VTK first (best quality)
+        try:
+            return self._render_3d_vtk(shape, view, output_path)
+        except Exception as e:
+            print(f"VTK failed ({e}), trying pyrender")
         
         try:
             return self._render_3d_pyrender(shape, view, output_path)
@@ -178,6 +189,32 @@ class Renderer:
         return results
     
     # --- Private rendering methods ---
+    
+    def _render_3d_vtk(self, shape: Any, view: ViewAngle, output_path: Path) -> Path:
+        """
+        Primary 3D renderer using VTK with proper orthographic projection.
+        Requires Xvfb for headless rendering.
+        """
+        from src.vtk_renderer import VTKRenderer, VTKRenderConfig
+        
+        # Configure VTK renderer to match our config
+        vtk_config = VTKRenderConfig(
+            width=self.config.width,
+            height=self.config.height,
+            background_color=tuple(c / 255.0 for c in self.config.background_color[:3]),
+            model_color=tuple(c / 255.0 for c in self.config.face_color),
+            use_orthographic=True,
+            zoom_factor=0.85,
+            antialiasing=4
+        )
+        
+        vtk_renderer = VTKRenderer(config=vtk_config, output_dir=self.output_dir)
+        
+        # Export shape to temp STL
+        mesh = self._shape_to_trimesh(shape)
+        
+        result = vtk_renderer.render_trimesh(mesh, view=view, output=str(output_path))
+        return result
     
     def _render_3d_pyrender(self, shape: Any, view: ViewAngle, output_path: Path) -> Path:
         """Render using pyrender with OSMesa backend."""

@@ -1,16 +1,29 @@
 #!/bin/bash
 set -e
 
+# Start Xvfb for headless VTK rendering
+start_xvfb() {
+    if ! pgrep -x Xvfb > /dev/null; then
+        echo "Starting Xvfb virtual framebuffer..." >&2
+        Xvfb :99 -screen 0 1280x1024x24 &>/dev/null &
+        sleep 0.5
+    fi
+    export DISPLAY=:99
+}
+
 case "$1" in
     serve|http)
+        start_xvfb
         echo "Starting CAD Agent HTTP server on port 8123..."
         exec python -m src.mcp_server http --host 0.0.0.0 --port 8123
         ;;
     mcp)
+        start_xvfb
         echo "Starting CAD Agent MCP server on stdio..." >&2
         exec python -m src.mcp_server mcp
         ;;
     test)
+        start_xvfb
         echo "Running self-test..."
         if python -c "import pytest" 2>/dev/null; then
             echo "Running pytest..."
