@@ -6,7 +6,7 @@
 
 AI agents doing CAD work are essentially blind. They can generate code, but they can't see the result. The typical workaround — taking screenshots and feeding them back — is painfully slow, manual, and breaks the agent's flow.
 
-Without visual feedback, the agent guesses. It can't see that the hole is in the wrong place, the fillet is too large, or the part won't fit. Every iteration requires human intervention to capture and relay what the model looks like.
+Without visual feedback, the agent guesses. It can't see that the hole is in the wrong place, the fill is too large, or the part won't fit. Every iteration requires human intervention to capture and relay what the model looks like.
 
 ## The Solution
 
@@ -177,4 +177,4 @@ See [LICENSE](LICENSE) for full terms and [NOTICES.md](NOTICES.md) for third-par
 
 **Commercial licensing:** Contact via [GitHub Sponsors](https://github.com/sponsors/Svetlana-DAO-LLC)
 
-Copyright (c) 2025 Svetlana DAO LLC
+Copyright (c) 2026 Svetlana DAO LLC
