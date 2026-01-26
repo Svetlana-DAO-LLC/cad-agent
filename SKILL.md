@@ -28,14 +28,42 @@ Decide: iterate or done
 
 **Never** do STL manipulation, mesh processing, or rendering outside the container. The container handles everything — you just command and observe.
 
-## Prerequisites
+## Setup
 
-Container must be running:
+### 1. Clone the Repository
 
 ```bash
-cd /home/node/clawd/projects/cad-agent
+git clone https://github.com/Svetlana-DAO-LLC/cad-agent.git
+cd cad-agent
+```
+
+### 2. Build the Docker Image
+
+```bash
+docker build -t cad-agent:latest .
+```
+
+Or using docker-compose:
+
+```bash
+docker-compose build
+```
+
+### 3. Run the Server
+
+```bash
+# Using docker-compose (recommended)
 docker-compose up -d
-# Verify: curl http://localhost:8123/health
+
+# Or using docker directly
+docker run -d --name cad-agent -p 8123:8123 cad-agent:latest serve
+```
+
+### 4. Verify Installation
+
+```bash
+curl http://localhost:8123/health
+# Should return: {"status": "healthy", ...}
 ```
 
 > **Docker-in-Docker caveat:** In nested container environments (e.g., Clawdbot sandbox), host networking may not work—`curl localhost:8123` will fail even though the server binds to `0.0.0.0:8123`. Use `docker exec cad-agent python3 -c "..."` commands instead. On a normal Docker host, localhost access works fine.
@@ -141,5 +169,6 @@ The project has safeguards against accidentally committing CAD outputs:
 
 ## Links
 
+- [Repository](https://github.com/Svetlana-DAO-LLC/cad-agent)
 - [build123d docs](https://build123d.readthedocs.io/)
 - [VTK](https://vtk.org/)
