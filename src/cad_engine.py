@@ -11,10 +11,16 @@ import traceback
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, List, Dict
 from dataclasses import dataclass, field
 
 import numpy as np
+
+try:
+    from microsandbox import PythonSandbox
+    HAS_MICROSANDBOX = True
+except ImportError:
+    HAS_MICROSANDBOX = False
 
 
 @dataclass
@@ -71,17 +77,116 @@ class CADEngine:
         self.models: dict[str, ModelState] = {}
         self.active_model: Optional[str] = None
     
-    def execute_code(self, code: str, model_name: str = \"default\") -> dict:
-        \"\"\"
-        Execute build123d code in a sandboxed namespace.
+    async def execute_code(self, code: str, model_name: str = "default") -> dict:
+        """
+        Execute build123d code. Uses microsandbox (MicroVM) if available.
+        """
+        if HAS_MICROSANDBOX:
+            return await self.execute_code_sandboxed(code, model_name)
+        return self.execute_code_legacy(code, model_name)
+
+    async def execute_code_sandboxed(self, code: str, model_name: str = "default") -> dict:
+        """
+        Execute build123d code using microsandbox (MicroVM) isolation.
+        Uses STEP export/import to pass the geometry back to the host.
+        """
+        # 1. Basic static analysis for keywords
+        blacklist = ['eval(', 'exec(', 'os.', 'subprocess', 'socket']
+        for word in blacklist:
+            if word in code:
+                return {"success": False, "output": "", "error": f"Security Error: Forbidden keyword '{word}' detected.", "geometry": None}
+
+        # 2. Prepare the sandboxed script
+        sandboxed_script = f"""
+from build123d import *
+import json
+import traceback
+
+namespace = {{}}
+try:
+    exec(\"from build123d import *\", namespace)
+    exec(\"\"\"{code}\"\"\", namespace)
+    
+    shape = None
+    if \"result\" in namespace and namespace[\"result\"] is not None:
+        shape = namespace[\"result\"]
+    else:
+        # Fallback to last defined shape
+        shape_types = (Part, Solid, Compound, Shape)
+        for key, val in reversed(list(namespace.items())):
+            if key.startswith(\"_\") or key == \"__builtins__\":
+                continue
+            if isinstance(val, shape_types):
+                shape = val
+                break
+    
+    if shape:
+        export_step(shape, \"/tmp/result.step\")
+        print(\"SANDBOX_SUCCESS\")
+    else:
+        print(\"SANDBOX_NO_SHAPE\")
         
-        Returns dict with: success, result_shape, output, error, geometry_info
-        \"\"\"
-        # Basic static analysis for dangerous keywords
+except Exception as e:
+    print(f\"SANDBOX_ERROR: {{e}}\")
+    traceback.print_exc()
+"""
+
+        # 3. Run in microsandbox
+        result = {"success": False, "output": "", "error": "", "geometry": None}
+        try:
+            async with PythonSandbox.create(name=f"cad_{model_name}") as sb:
+                # Use dedicated CAD image in production
+                proc = await sb.run(sandboxed_script)
+                output = await proc.output()
+                result["output"] = output
+                
+                if "SANDBOX_SUCCESS" in output:
+                    # Download result
+                    step_data = await sb.read_file("/tmp/result.step")
+                    local_step = self.workspace / f"{model_name}_tmp.step"
+                    with open(local_step, "wb") as f:
+                        f.write(step_data)
+                    
+                    # Load back into build123d
+                    from build123d import import_step
+                    shape = import_step(str(local_step))
+                    
+                    # Store model state
+                    state = ModelState(
+                        name=model_name,
+                        code=code,
+                        shape=shape,
+                        metadata={"source": "microsandbox"}
+                    )
+                    if model_name in self.models:
+                        state.history = self.models[model_name].history + [self.models[model_name].code]
+                    
+                    self.models[model_name] = state
+                    self.active_model = model_name
+                    
+                    result["success"] = True
+                    result["geometry"] = state.to_dict()["geometry"]
+                    local_step.unlink()
+                
+                elif "SANDBOX_ERROR" in output:
+                    result["error"] = output
+                else:
+                    result["error"] = "Sandbox failed to produce a shape result. Ensure your code defines a shape."
+
+        except Exception as e:
+            result["error"] = f"Microsandbox Error: {e}\n{traceback.format_exc()}"
+        
+        return result
+
+    def execute_code_legacy(self, code: str, model_name: str = "default") -> dict:
+        """
+        Execute build123d code in local restricted namespace (Fallback).
+        """
+        # Basic static analysis
         blacklist = ['import ', 'eval(', 'exec(', 'os.', 'subprocess', 'open(', 'write(', 'read(', 'socket']
         for word in blacklist:
             if word in code:
-                return {\"success\": False, \"output\": \"\", \"error\": f\"Security Error: Forbidden keyword '{word}' detected.\", \"geometry\": None}
+                return {"success": False, "output": "", "error": f"Security Error: Forbidden keyword '{word}' detected.", "geometry": None}
 
         # Capture stdout/stderr
         old_stdout, old_stderr = sys.stdout, sys.stderr
@@ -93,17 +198,14 @@ class CADEngine:
         
         try:
             exec(code, namespace)
-            
-            # Find the resulting shape(s) in namespace
             shape = self._extract_shape(namespace)
             
             if shape is not None:
-                # Store model state
                 state = ModelState(
                     name=model_name,
                     code=code,
                     shape=shape,
-                    metadata={"source": "execute_code"}
+                    metadata={"source": "execute_code_legacy"}
                 )
                 if model_name in self.models:
                     state.history = self.models[model_name].history + [self.models[model_name].code]
@@ -130,8 +232,7 @@ class CADEngine:
         return result
     
     def _build_namespace(self) -> dict:
-        \"\"\"Build the execution namespace with restricted build123d imports.\"\"\"
-        # Restricted builtins
+        """Build the execution namespace with restricted build123d imports."""
         safe_builtins = {
             'abs': abs, 'all': all, 'any': any, 'bin': bin, 'bool': bool,
             'bytearray': bytearray, 'bytes': bytes, 'chr': chr, 'complex': complex,
@@ -147,19 +248,16 @@ class CADEngine:
             '__name__': '__main__', '__doc__': None, '__package__': None,
         }
         
-        namespace = {\"__builtins__\": safe_builtins}
+        namespace = {"__builtins__": safe_builtins}
         
-        # Import build123d into namespace
         try:
             exec("from build123d import *", namespace)
         except ImportError as e:
             raise RuntimeError(f"build123d not available: {e}")
         
-        # Add numpy for parametric work
         namespace["np"] = np
         namespace["numpy"] = np
         
-        # Add reference to existing models
         namespace["_models"] = {
             name: state.shape for name, state in self.models.items()
             if state.shape is not None
@@ -169,18 +267,15 @@ class CADEngine:
     
     def _extract_shape(self, namespace: dict) -> Any:
         """Extract the resulting shape from the execution namespace."""
-        # Priority: explicit 'result' variable, then any Part/Solid/Compound
         if "result" in namespace and namespace["result"] is not None:
             return namespace["result"]
         
-        # Look for build123d shape types
         try:
             from build123d import Part, Solid, Compound, Sketch, Shape
             shape_types = (Part, Solid, Compound, Shape)
         except ImportError:
             return None
         
-        # Find last defined shape variable
         candidates = []
         for key, val in namespace.items():
             if key.startswith("_") or key == "__builtins__":
@@ -189,7 +284,6 @@ class CADEngine:
                 candidates.append((key, val))
         
         if candidates:
-            # Return the last one (most likely the final result)
             return candidates[-1][1]
         
         return None
@@ -218,7 +312,6 @@ class CADEngine:
         elif format == "step":
             export_step(state.shape, str(path))
         elif format == "3mf":
-            # build123d may support this
             try:
                 from build123d import export_3mf
                 export_3mf(state.shape, str(path))
@@ -258,7 +351,6 @@ class CADEngine:
             except Exception:
                 pass
             
-            # Face and edge counts
             try:
                 measurements["face_count"] = len(shape.faces())
                 measurements["edge_count"] = len(shape.edges())

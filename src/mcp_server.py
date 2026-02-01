@@ -16,8 +16,9 @@ Tools:
 import json
 import sys
 import base64
+import inspect
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any
 import asyncio
 
 # MCP protocol implementation (stdio JSON-RPC)
@@ -129,9 +130,13 @@ class MCPServer:
             
             if tool_name in self.tools:
                 try:
-                    result = await asyncio.get_event_loop().run_in_executor(
-                        None, lambda: self.tools[tool_name](**arguments)
-                    )
+                    tool_func = self.tools[tool_name]
+                    if inspect.iscoroutinefunction(tool_func):
+                        result = await tool_func(**arguments)
+                    else:
+                        result = await asyncio.get_event_loop().run_in_executor(
+                            None, lambda: tool_func(**arguments)
+                        )
                     return {
                         "jsonrpc": "2.0",
                         "id": req_id,
@@ -289,8 +294,8 @@ class MCPServer:
     
     # --- Tool implementations ---
     
-    def _create_model(self, code: str, name: str = "default") -> dict:
-        result = self.engine.execute_code(code, name)
+    async def _create_model(self, code: str, name: str = "default") -> dict:
+        result = await self.engine.execute_code(code, name)
         if result["success"] and result["geometry"]:
             # Auto-render after creation
             model = self.engine.get_model(name)
@@ -311,8 +316,8 @@ class MCPServer:
                     result["dimension_error"] = str(e)
         return result
     
-    def _modify_model(self, code: str, name: str = "default") -> dict:
-        return self._create_model(code, name)
+    async def _modify_model(self, code: str, name: str = "default") -> dict:
+        return await self._create_model(code, name)
     
     def _render_3d(self, name: str = None, view: str = "iso") -> dict:
         model = self.engine.get_model(name)
@@ -335,7 +340,6 @@ class MCPServer:
             return {"error": f"No model '{name or 'active'}' found"}
         
         filename = f"{model.name}_2d_{view}.png"
-        # Use matplotlib-based blueprint renderer (faster, works with STL meshes)
         path = self.blueprint_renderer.render_blueprint(
             model.shape, 
             filename=filename,
@@ -418,7 +422,6 @@ class MCPServer:
         shape = model.shape
         
         try:
-            # Check if manifold (watertight)
             from build123d import export_stl
             import trimesh
             import tempfile
@@ -448,7 +451,6 @@ class MCPServer:
             if not mesh.is_volume:
                 issues.append("Model does not form a valid volume.")
             
-            # Check for very thin sections (approximate)
             bb = shape.bounding_box()
             dims = [
                 abs(bb.max.X - bb.min.X),
@@ -458,7 +460,6 @@ class MCPServer:
             if any(d < min_wall_thickness for d in dims):
                 issues.append(f"Bounding box has dimension < {min_wall_thickness}mm. May be too thin to print.")
             
-            # Check for degenerate faces
             if hasattr(mesh, 'face_normals'):
                 degenerate = np.sum(np.isnan(mesh.face_normals).any(axis=1))
                 if degenerate > 0:
@@ -502,13 +503,11 @@ def create_http_app():
     
     app = FastAPI(title="CAD Agent", version="0.1.0")
     
-    # CORS for development
     from fastapi.middleware.cors import CORSMiddleware
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
     
     server = MCPServer()
     
-    # Serve static files
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
@@ -539,12 +538,12 @@ def create_http_app():
         return {"status": "ok", "version": "0.1.0"}
     
     @app.post("/model/create")
-    def create_model(req: CreateModelRequest):
-        return server._create_model(req.code, req.name)
+    async def create_model(req: CreateModelRequest):
+        return await server._create_model(req.code, req.name)
     
     @app.post("/model/modify")
-    def modify_model(req: CreateModelRequest):
-        return server._modify_model(req.code, req.name)
+    async def modify_model(req: CreateModelRequest):
+        return await server._modify_model(req.code, req.name)
     
     @app.get("/model/list")
     def list_models():
