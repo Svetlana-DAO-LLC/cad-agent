@@ -49,7 +49,10 @@ COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
 # Working directories
-RUN mkdir -p /workspace /renders
+RUN mkdir -p /workspace /renders && \
+    chown -R 1000:1000 /workspace /renders /app
+
+USER 1000
 
 EXPOSE 8123
 
