@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CAD Agent Viewer</title>
+    <title>CAD Agent - Interactive Viewer</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'JetBrains Mono', 'Courier New', monospace; background: #1a1a2e; color: #eee; }
@@ -21,7 +21,7 @@
         
         .main {
             display: grid;
-            grid-template-columns: 250px 1fr 300px;
+            grid-template-columns: 280px 1fr 320px;
             height: calc(100vh - 50px);
         }
         
@@ -31,7 +31,7 @@
             overflow-y: auto;
             border-right: 1px solid #0f3460;
         }
-        .sidebar h3 { font-size: 12px; color: #888; margin-bottom: 8px; text-transform: uppercase; }
+        .sidebar h3 { font-size: 11px; color: #888; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
         
         .model-list { list-style: none; }
         .model-list li {
@@ -58,17 +58,21 @@
             left: 16px;
             display: flex;
             gap: 8px;
+            flex-wrap: wrap;
+            max-width: 400px;
         }
         .controls button {
-            background: rgba(22, 33, 62, 0.9);
+            background: rgba(22, 33, 62, 0.95);
             color: #eee;
             border: 1px solid #0f3460;
-            padding: 6px 12px;
+            padding: 8px 12px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 11px;
+            transition: all 0.2s;
         }
-        .controls button:hover { background: #0f3460; }
+        .controls button:hover { background: #e94560; border-color: #e94560; }
+        .controls button.active { background: #4ecca3; border-color: #4ecca3; color: #1a1a2e; }
         
         .info-panel {
             background: #16213e;
@@ -76,30 +80,108 @@
             overflow-y: auto;
             border-left: 1px solid #0f3460;
         }
-        .info-panel h3 { font-size: 12px; color: #888; margin: 12px 0 6px; text-transform: uppercase; }
-        .info-panel .value { font-size: 13px; color: #4ecca3; margin: 2px 0; }
-        .info-panel .dim { font-size: 12px; color: #ccc; padding: 3px 0; }
+        .info-panel h3 { font-size: 11px; color: #888; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .info-panel .value { font-size: 12px; color: #4ecca3; margin: 2px 0; }
+        .info-panel .dim { font-size: 11px; color: #ccc; padding: 3px 0; }
         
-        .render-gallery {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 8px;
-            margin-top: 12px;
-        }
-        .render-gallery img {
-            width: 100%;
+        /* Dimension Sliders */
+        .dimension-slider {
+            background: #1a1a2e;
+            padding: 10px;
             border-radius: 4px;
-            border: 1px solid #0f3460;
+            margin: 6px 0;
+        }
+        .dimension-slider label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #aaa;
+            margin-bottom: 4px;
+        }
+        .dimension-slider label span { color: #4ecca3; }
+        .dimension-slider input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            background: #0f3460;
+            border-radius: 3px;
+            outline: none;
+        }
+        .dimension-slider input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #e94560;
+            border-radius: 50%;
             cursor: pointer;
         }
-        .render-gallery img:hover { border-color: #e94560; }
         
-        .code-input {
-            margin-top: 16px;
+        /* Part Selection */
+        .part-list { margin-top: 8px; }
+        .part-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            background: #1a1a2e;
+            border-radius: 4px;
+            margin: 4px 0;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s;
         }
+        .part-item:hover { border-color: #0f3460; }
+        .part-item.selected { border-color: #e94560; background: rgba(233, 69, 96, 0.1); }
+        .part-item input[type="checkbox"] { accent-color: #e94560; }
+        
+        /* AI Feedback Panel */
+        .ai-feedback {
+            background: #1a1a2e;
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 12px;
+        }
+        .ai-feedback textarea {
+            width: 100%;
+            height: 80px;
+            background: #0a0a1a;
+            color: #eee;
+            border: 1px solid #0f3460;
+            border-radius: 4px;
+            padding: 8px;
+            font-family: inherit;
+            font-size: 11px;
+            resize: vertical;
+        }
+        .ai-feedback button {
+            width: 100%;
+            margin-top: 8px;
+            padding: 10px;
+            background: linear-gradient(135deg, #e94560, #c73e54);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .ai-feedback button:hover { background: linear-gradient(135deg, #c73e54, #a63344); }
+        .ai-response {
+            margin-top: 10px;
+            padding: 10px;
+            background: #0a0a1a;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #4ecca3;
+            white-space: pre-wrap;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .code-input { margin-top: 16px; }
         .code-input textarea {
             width: 100%;
-            height: 120px;
+            height: 100px;
             background: #0a0a1a;
             color: #4ecca3;
             border: 1px solid #0f3460;
@@ -112,7 +194,7 @@
         .code-input button {
             margin-top: 8px;
             width: 100%;
-            padding: 8px;
+            padding: 10px;
             background: #e94560;
             color: white;
             border: none;
@@ -120,7 +202,6 @@
             cursor: pointer;
             font-weight: bold;
         }
-        .code-input button:hover { background: #c73e54; }
         
         .loading {
             position: absolute;
@@ -129,16 +210,35 @@
             transform: translate(-50%, -50%);
             color: #e94560;
             font-size: 14px;
+            background: rgba(10,10,26,0.9);
+            padding: 20px;
+            border-radius: 8px;
         }
+        
+        .render-gallery {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .render-gallery img {
+            width: 100%;
+            border-radius: 4px;
+            border: 1px solid #0f3460;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .render-gallery img:hover { border-color: #e94560; }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🔧 CAD Agent</h1>
-        <span class="status" id="status">Connecting...</span>
+        <span class="status" id="status>
     </div>
     
-    <div class="main">
+    ">Connecting...</span<div class="main">
+        <!-- Left Sidebar - Models & Code -->
         <div class="sidebar">
             <h3>Models</h3>
             <ul class="model-list" id="model-list"></ul>
@@ -146,54 +246,65 @@
             <div class="code-input">
                 <h3>Create Model</h3>
                 <textarea id="code-input" placeholder="from build123d import *&#10;result = Box(30, 20, 10)"></textarea>
-                <div style="display: flex; gap: 8px;">
-                    <button onclick="createModel()" style="flex: 2;">▶ Execute</button>
-                    <button onclick="clearCode()" style="flex: 1; background: #444;">Clear</button>
-                </div>
+                <button onclick="createModel()">▶ Execute Code</button>
             </div>
         </div>
         
+        <!-- Center - 3D Viewer -->
         <div class="viewer-container">
             <canvas id="viewer-3d"></canvas>
-            <div class="loading" id="loading">Drop STL or create a model</div>
+            <div class="loading" id="loading">Drop STL or create model</div>
             <div class="controls">
                 <button onclick="resetView()">⟲ Reset</button>
                 <button onclick="toggleWireframe()">◫ Wire</button>
+                <button onclick="renderViews()">📐 Views</button>
                 <button onclick="exportSTL()">⬇ STL</button>
                 <button onclick="exportSTEP()">⬇ STEP</button>
-                <button onclick="export3MF()">⬇ 3MF</button>
-                <button onclick="renderViews()">📐 Views</button>
+                <button onclick="analyzeModel()">🔍 Analyze</button>
+                <button onclick="selectMode()" id="select-btn">👆 Select Part</button>
             </div>
         </div>
         
+        <!-- Right Panel - Dimensions, Parts, AI Feedback -->
         <div class="info-panel">
             <h3>Geometry</h3>
             <div id="geometry-info">
                 <div class="value">No model loaded</div>
             </div>
             
-            <h3>Dimensions</h3>
-            <div id="dimension-info"></div>
+            <h3>Adjust Dimensions</h3>
+            <div id="dimension-sliders"></div>
             
-            <h3>Printability</h3>
-            <div id="printability-info"></div>
+            <h3>Parts</h3>
+            <div class="part-list" id="part-list">
+                <div class="dim">No parts detected</div>
+            </div>
+            
+            <h3>AI Feedback</h3>
+            <div class="ai-feedback">
+                <textarea id="ai-feedback" placeholder="Tell the AI what to change:&#10;- Move the hole 5mm right&#10;- Make the box taller&#10;- Add a fillet to the edge"></textarea>
+                <button onclick="sendToAI()">🤖 Send to AI</button>
+                <div class="ai-response" id="ai-response"></div>
+            </div>
             
             <h3>Renders</h3>
             <div class="render-gallery" id="render-gallery"></div>
         </div>
     </div>
 
-    <!-- Three.js for 3D viewing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/STLLoader.js"></script>
     
     <script>
         const API_BASE = window.location.origin;
         let scene, camera, renderer, controls, currentMesh;
         let wireframeMode = false;
+        let selectMode = false;
+        let selectedPart = null;
+        let dimensionValues = {};
         
-        // Initialize Three.js
+        // ============ THREE.JS SETUP ============
         function initViewer() {
             const canvas = document.getElementById('viewer-3d');
             const container = canvas.parentElement;
@@ -210,36 +321,43 @@
             
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
             
-            // Lights
+            // Lighting
             const ambientLight = new THREE.AmbientLight(0x404040, 2);
             scene.add(ambientLight);
             
-            const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-            dirLight.position.set(1, 1, 1);
-            scene.add(dirLight);
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.2);
+            dirLight1.position.set(1, 1, 1);
+            scene.add(dirLight1);
             
-            const dirLight2 = new THREE.DirectionalLight(0x4488ff, 0.5);
+            const dirLight2 = new THREE.DirectionalLight(0x4488ff, 0.6);
             dirLight2.position.set(-1, -1, 0);
             scene.add(dirLight2);
+            
+            const dirLight3 = new THREE.DirectionalLight(0xff8844, 0.3);
+            dirLight3.position.set(0, -1, 1);
+            scene.add(dirLight3);
             
             // Grid
             const grid = new THREE.GridHelper(200, 20, 0x333355, 0x222244);
             grid.rotation.x = Math.PI / 2;
             scene.add(grid);
             
-            // Axes
             const axes = new THREE.AxesHelper(50);
             scene.add(axes);
             
-            window.addEventListener('resize', () => {
-                camera.aspect = container.clientWidth / container.clientHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(container.clientWidth, container.clientHeight);
-            });
-            
+            window.addEventListener('resize', onResize);
             animate();
             checkServer();
+        }
+        
+        function onResize() {
+            const canvas = document.getElementById('viewer-3d');
+            const container = canvas.parentElement;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
         }
         
         function animate() {
@@ -248,6 +366,7 @@
             renderer.render(scene, camera);
         }
         
+        // ============ MODEL LOADING ============
         function loadSTL(data) {
             if (currentMesh) scene.remove(currentMesh);
             
@@ -264,7 +383,7 @@
             
             currentMesh = new THREE.Mesh(geometry, material);
             
-            // Center the model
+            // Center
             geometry.computeBoundingBox();
             const center = new THREE.Vector3();
             geometry.boundingBox.getCenter(center);
@@ -272,25 +391,28 @@
             
             scene.add(currentMesh);
             
-            // Fit camera
-            const size = new THREE.Vector3();
-            geometry.boundingBox.getSize(size);
-            const maxDim = Math.max(size.x, size.y, size.z);
-            camera.position.set(maxDim * 1.5, maxDim * 1.5, maxDim * 1.5);
-            controls.target.set(0, 0, 0);
+            // Click handler for part selection
+            currentMesh.geometry.groups.forEach((group, idx) => {
+                group.materialIndex = idx;
+            });
             
+            fitCameraToMesh();
             document.getElementById('loading').style.display = 'none';
         }
         
+        function fitCameraToMesh() {
+            if (!currentMesh) return;
+            const box = new THREE.Box3().setFromObject(currentMesh);
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            const maxDim = Math.max(size.x, size.y, size.z);
+            camera.position.set(maxDim * 2, maxDim * 2, maxDim * 2);
+            controls.target.set(0, 0, 0);
+        }
+        
+        // ============ INTERACTION ============
         function resetView() {
-            if (currentMesh) {
-                const box = new THREE.Box3().setFromObject(currentMesh);
-                const size = new THREE.Vector3();
-                box.getSize(size);
-                const maxDim = Math.max(size.x, size.y, size.z);
-                camera.position.set(maxDim * 1.5, maxDim * 1.5, maxDim * 1.5);
-                controls.target.set(0, 0, 0);
-            }
+            fitCameraToMesh();
         }
         
         function toggleWireframe() {
@@ -300,6 +422,52 @@
             }
         }
         
+        function selectMode() {
+            selectMode = !selectMode;
+            document.getElementById('select-btn').classList.toggle('active', selectMode);
+            
+            if (selectMode) {
+                renderer.domElement.style.cursor = 'crosshair';
+            } else {
+                renderer.domElement.style.cursor = 'default';
+            }
+        }
+        
+        // Click handler for part selection
+        renderer.domElement.addEventListener('click', (event) => {
+            if (!selectMode || !currentMesh) return;
+            
+            const rect = renderer.domElement.getBoundingClientRect();
+            const mouse = new THREE.Vector2(
+                ((event.clientX - rect.left) / rect.width) * 2 - 1,
+                -((event.clientY - rect.top) / rect.height) * 2 + 1
+            );
+            
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(mouse, camera);
+            
+            const intersects = raycaster.intersectObject(currentMesh);
+            if (intersects.length > 0) {
+                const face = intersects[0].face;
+                const partName = `Part ${face.materialIndex + 1}`;
+                
+                // Update selection UI
+                selectedPart = partName;
+                updatePartSelectionUI(partName);
+            }
+        });
+        
+        function updatePartSelectionUI(partName) {
+            const list = document.getElementById('part-list');
+            list.innerHTML = `
+                <div class="part-item selected">
+                    <input type="checkbox" checked>
+                    <span>${partName}</span>
+                </div>
+            `;
+        }
+        
+        // ============ API CALLS ============
         async function checkServer() {
             try {
                 const resp = await fetch(`${API_BASE}/health`);
@@ -328,9 +496,7 @@
                     li.onclick = () => selectModel(model.name);
                     list.appendChild(li);
                 }
-            } catch (e) {
-                console.error('Failed to load models:', e);
-            }
+            } catch (e) { console.error(e); }
         }
         
         async function selectModel(name) {
@@ -339,6 +505,11 @@
                 const measureResp = await fetch(`${API_BASE}/model/${name}/measure`);
                 const measurements = await measureResp.json();
                 updateGeometryInfo(measurements);
+                
+                // Get dimensions for sliders
+                const dimResp = await fetch(`${API_BASE}/model/${name}/dimensions`);
+                const dims = await dimResp.json();
+                updateDimensionSliders(dims);
                 
                 // Export and load STL
                 const exportResp = await fetch(`${API_BASE}/export`, {
@@ -349,15 +520,8 @@
                 const stlData = await exportResp.arrayBuffer();
                 loadSTL(stlData);
                 
-                // Refresh list to show active status
                 loadModels();
-            } catch (e) {
-                console.error('Failed to load model:', e);
-            }
-        }
-        
-        function clearCode() {
-            document.getElementById('code-input').value = '';
+            } catch (e) { console.error(e); }
         }
         
         async function createModel() {
@@ -365,7 +529,7 @@
             if (!code.trim()) return;
             
             document.getElementById('loading').style.display = 'block';
-            document.getElementById('loading').textContent = 'Creating model...';
+            document.getElementById('loading').textContent = 'Creating...';
             
             try {
                 const resp = await fetch(`${API_BASE}/model/create`, {
@@ -377,23 +541,66 @@
                 
                 if (result.success) {
                     updateGeometryInfo(result.geometry);
-                    updateDimensionInfo(result.dimensions);
+                    updateDimensionSliders(result.dimensions);
                     selectModel('interactive');
                 } else {
-                    document.getElementById('loading').textContent = 'Error: ' + (result.error || 'Unknown').substring(0, 100);
+                    document.getElementById('loading').textContent = 'Error: ' + (result.error || '').substring(0, 80);
                 }
             } catch (e) {
                 document.getElementById('loading').textContent = 'Connection error';
             }
         }
         
-        async function renderViews() {
+        async function sendToAI() {
+            const feedback = document.getElementById('ai-feedback').value;
+            if (!feedback.trim()) return;
+            
+            const responseEl = document.getElementById('ai-response');
+            responseEl.textContent = '🤖 Thinking...';
+            
             try {
-                const resp = await fetch(`${API_BASE}/render/all`, {
+                const resp = await fetch(`${API_BASE}/ai/feedback`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({})
+                    body: JSON.stringify({ 
+                        feedback,
+                        selectedPart,
+                        dimensions: dimensionValues
+                    })
                 });
+                const result = await resp.json();
+                
+                if (result.code) {
+                    document.getElementById('code-input').value = result.code;
+                    responseEl.textContent = '🤖 ' + (result.explanation || 'Generated new code');
+                    await createModel();
+                } else {
+                    responseEl.textContent = '🤖 ' + (result.response || result.error || 'No response');
+                }
+            } catch (e) {
+                responseEl.textContent = 'Error: ' + e.message;
+            }
+        }
+        
+        async function analyzeModel() {
+            try {
+                const resp = await fetch(`${API_BASE}/model/interactive/analyze`);
+                const result = await resp.json();
+                
+                let html = '';
+                for (const issue of (result.issues || [])) {
+                    const color = issue.severity === 'error' ? '#e94560' : '#ffa500';
+                    html += `<div style="color:${color}">${issue.severity}: ${issue.message}</div>`;
+                }
+                if (!html) html = '<div class="value">No issues found</div>';
+                
+                document.getElementById('geometry-info').innerHTML = html;
+            } catch (e) { console.error(e); }
+        }
+        
+        async function renderViews() {
+            try {
+                const resp = await fetch(`${API_BASE}/render/all`, { method: 'POST' });
                 const result = await resp.json();
                 
                 const gallery = document.getElementById('render-gallery');
@@ -403,80 +610,92 @@
                     const img = document.createElement('img');
                     img.src = `${API_BASE}/renders/${path.split('/').pop()}`;
                     img.alt = view;
-                    img.title = view;
                     gallery.appendChild(img);
                 }
-            } catch (e) {
-                console.error('Failed to render views:', e);
-            }
+            } catch (e) { console.error(e); }
         }
         
-        async function exportSTL() {
-            await exportFormat('stl');
-        }
-
-        async function exportSTEP() {
-            await exportFormat('step');
-        }
-
-        async function export3MF() {
-            await exportFormat('3mf');
-        }
+        async function exportSTL() { await exportFormat('stl'); }
+        async function exportSTEP() { await exportFormat('step'); }
         
         async function exportFormat(format) {
             try {
-                // If interactive code is active, ensure it's selected/current
-                // but really we just export whatever is the 'active' model on server
-                // or we could pass the name.
-                // The current API 'export' takes {name, format}.
-                // If name is missing, it exports active model.
-                
                 const resp = await fetch(`${API_BASE}/export`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ format: format })
+                    body: JSON.stringify({ format })
                 });
-                
-                if (!resp.ok) throw new Error(await resp.text());
-                
                 const blob = await resp.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = `model.${format}`;
                 a.click();
-            } catch (e) {
-                console.error('Export failed:', e);
-                alert(`Export failed: ${e.message}`);
-            }
+            } catch (e) { console.error(e); }
         }
         
+        // ============ UI UPDATES ============
         function updateGeometryInfo(geometry) {
             const el = document.getElementById('geometry-info');
             if (!geometry) { el.innerHTML = '<div class="value">No geometry</div>'; return; }
             
             const bb = geometry.bounding_box || {};
             el.innerHTML = `
-                <div class="dim">Width: <span class="value">${(bb.size?.[0] || bb.width || 0).toFixed(1)} mm</span></div>
-                <div class="dim">Depth: <span class="value">${(bb.size?.[1] || bb.depth || 0).toFixed(1)} mm</span></div>
-                <div class="dim">Height: <span class="value">${(bb.size?.[2] || bb.height || 0).toFixed(1)} mm</span></div>
-                <div class="dim">Volume: <span class="value">${((geometry.volume || geometry.volume_mm3 || 0) / 1000).toFixed(2)} cm³</span></div>
-                <div class="dim">Area: <span class="value">${((geometry.area || geometry.surface_area_mm2 || 0) / 100).toFixed(1)} cm²</span></div>
+                <div class="dim">Width: <span class="value">${(bb.size?.[0] || 0).toFixed(1)} mm</span></div>
+                <div class="dim">Depth: <span class="value">${(bb.size?.[1] || 0).toFixed(1)} mm</span></div>
+                <div class="dim">Height: <span class="value">${(bb.size?.[2] || 0).toFixed(1)} mm</span></div>
+                <div class="dim">Volume: <span class="value">${((geometry.volume || 0) / 1000).toFixed(2)} cm³</span></div>
             `;
         }
         
-        function updateDimensionInfo(dims) {
-            const el = document.getElementById('dimension-info');
-            if (!dims) { el.innerHTML = ''; return; }
+        function updateDimensionSliders(dims) {
+            const el = document.getElementById('dimension-sliders');
+            if (!dims || !dims.parameters) { 
+                el.innerHTML = '<div class="dim">No adjustable dimensions</div>';
+                return;
+            }
             
+            dimensionValues = {};
             let html = '';
-            for (const d of (dims.all_dimensions || []).slice(0, 10)) {
-                html += `<div class="dim">${d.label} mm</div>`;
+            
+            for (const [name, info] of Object.entries(dims.parameters)) {
+                const value = info.value || info.default || 10;
+                const min = info.min || value * 0.5;
+                const max = info.max || value * 1.5;
+                
+                dimensionValues[name] = value;
+                
+                html += `
+                    <div class="dimension-slider">
+                        <label>
+                            ${name}
+                            <span id="val-${name}">${value.toFixed(1)}</span>
+                        </label>
+                        <input type="range" min="${min}" max="${max}" value="${value}" 
+                            onchange="updateDimension('${name}', this.value)"
+                            oninput="updateDimension('${name}', this.value)">
+                    </div>
+                `;
             }
-            for (const f of (dims.features || [])) {
-                html += `<div class="dim" style="color:#e94560">${f.label} mm</div>`;
-            }
+            
+            html += '<button onclick="applyDimensionChanges()" style="width:100%;margin-top:8px;padding:8px;background:#4ecca3;color:#1a1a2e;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Apply Changes</button>';
+            
             el.innerHTML = html;
+        }
+        
+        function updateDimension(name, value) {
+            dimensionValues[name] = parseFloat(value);
+            document.getElementById(`val-${name}`).textContent = parseFloat(value).toFixed(1);
+        }
+        
+        function applyDimensionChanges() {
+            const code = document.getElementById('code-input').value;
+            // This would generate new code with updated dimensions
+            // For now, just send to AI with the new values
+            document.getElementById('ai-feedback').value = 
+                `Adjust dimensions: ${JSON.stringify(dimensionValues)}\n\n` +
+                `Modify the model to use these values.`;
+            sendToAI();
         }
         
         // Init
