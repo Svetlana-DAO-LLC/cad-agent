@@ -527,6 +527,98 @@ def create_http_app():
         name: str = None
         format: str = "stl"
     
+
+    # ==== AI Feedback & Dimension Adjustment Endpoints ====
+    
+    class AIFeedbackRequest(BaseModel):
+        feedback: str
+        selectedPart: Optional[str] = None
+        dimensions: Optional[dict] = None
+        code: Optional[str] = None
+    
+    @app.post("/ai/feedback")
+    async def ai_feedback(req: AIFeedbackRequest):
+        """Generate new code based on human feedback."""
+        model = server.engine.get_model("interactive")
+        
+        geometry_info = {}
+        if model and model.shape:
+            try:
+                geometry_info = server.dimensioner.get_dimension_summary(model.shape)
+            except:
+                pass
+        
+        default_code = "from build123d import *\\nresult = Box(30, 20, 10)"
+        prompt = f"""You are a CAD expert. Generate build123d Python code.
+
+Current code:
+{req.code or default_code}
+
+Current dimensions: {json.dumps(req.dimensions or geometry_info.get('parameters', {}))}
+
+Human: {req.feedback}
+
+Output ONLY valid Python code using build123d. Assign to 'result'."""
+
+        try:
+            import os
+            code = None
+            
+            if os.environ.get('ANTHROPIC_API_KEY'):
+                import anthropic
+                client = anthropic.Anthropic(api_key=os.environ['ANTHROPIC_API_KEY'])
+                resp = client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=1024,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                code = resp.content[0].text.strip()
+                if code.startswith('```python'):
+                    code = code[10:]
+                if code.endswith('```'):
+                    code = code[:-3]
+            elif os.environ.get('OPENAI_API_KEY'):
+                import openai
+                client = openai.OpenAI(api_key=os.environ['OPENAI_API_KEY'])
+                resp = client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                code = resp.choices[0].message.content.strip()
+            else:
+                code = "from build123d import *\\nresult = Box(30, 20, 10)"
+            
+            return {"code": code, "explanation": "Generated code from feedback"}
+        except Exception as e:
+            return {"error": str(e)}
+    
+    @app.get("/model/{name}/dimensions")
+    def get_model_dimensions(name: str = "default"):
+        """Get adjustable dimension parameters."""
+        model = server.engine.get_model(name)
+        if not model or not model.shape:
+            return {"error": f"No model '{name}' found"}
+        
+        try:
+            bb = model.shape.bounding_box()
+            parameters = {}
+            
+            for axis, (dim_name, label) in enumerate([("width", "Width (X)"), ("depth", "Depth (Y)"), ("height", "Height (Z)")]):
+                vals = [bb.min.X, bb.max.X, bb.min.Y, bb.max.Y, bb.min.Z, bb.max.Z]
+                val = abs(vals[axis*2+1] - vals[axis*2])
+                parameters[dim_name] = {
+                    "value": round(val, 2),
+                    "min": max(1, val * 0.5),
+                    "max": val * 2,
+                    "label": label
+                }
+            
+            return {"parameters": parameters}
+        except Exception as e:
+            return {"error": str(e)}
+
+
+
     @app.get("/")
     def root():
         viewer_path = Path(__file__).parent / "static" / "viewer.html"
@@ -613,3 +705,4 @@ if __name__ == "__main__":
         import uvicorn
         app = create_http_app()
         uvicorn.run(app, host=args.host, port=args.port)
+
