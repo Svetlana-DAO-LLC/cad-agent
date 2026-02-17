@@ -124,11 +124,54 @@ curl -X POST http://localhost:8123/export \
 | `POST /model/modify` | Modify existing model |
 | `GET /model/list` | List models in session |
 | `GET /model/{name}/measure` | Get dimensions |
+| `GET /model/{name}/dimensions` | Get adjustable parameters |
 | `POST /render/3d` | 3D shaded render (VTK) |
 | `POST /render/2d` | 2D technical drawing |
 | `POST /render/multiview` | 4-view composite |
+| `POST /render/blueprint` | ANSI/ISO blueprint |
 | `POST /export` | Export STL/STEP/3MF |
 | `POST /analyze/printability` | Check if printable |
+| `POST /ai/feedback` | Get AI-generated code from feedback |
+| `POST /load_scad` | Load OpenSCAD file |
+| `POST /render_scad` | Render SCAD to STL |
+| `POST /convert_scad` | Convert SCAD to build123d |
+
+## OpenSCAD Support
+
+CAD Agent can also work with OpenSCAD files:
+
+```bash
+# Load and extract info from .scad
+curl -X POST http://localhost:8123/load_scad \
+  -d '{"path": "/workspace/design.scad"}'
+
+# Render SCAD to STL
+curl -X POST http://localhost:8123/render_scad \
+  -d '{"scad_path": "/workspace/design.scad", "output_path": "/workspace/design.stl"}'
+
+# Convert to build123d (best-effort)
+curl -X POST http://localhost:8123/convert_scad \
+  -d '{"scad_path": "/workspace/design.scad"}'
+
+# Extract dimension variables
+curl -X POST http://localhost:8123/extract_scad_dimensions \
+  -d '{"scad_path": "/workspace/design.scad"}'
+```
+
+## AI Feedback
+
+Get code generated from human feedback:
+
+```bash
+curl -X POST http://localhost:8123/ai/feedback \
+  -H "Content-Type: application/json" \
+  -d '{
+    "feedback": "Make the hole bigger",
+    "code": "from build123d import *\nresult = Box(60, 40, 10)"
+  }'
+```
+
+Returns generated code based on the feedback.
 
 ## build123d Cheatsheet
 
