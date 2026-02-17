@@ -28,6 +28,7 @@ class MCPServer:
         from src.cad_engine import CADEngine
         from src.renderer import Renderer, RenderConfig
         from src.dimensioner import Dimensioner
+        from src.openscad_engine import OpenSCADEngine
         from src.blueprint_renderer import BlueprintRenderer
         
         self.engine = CADEngine(workspace=Path("/workspace"))
@@ -36,6 +37,7 @@ class MCPServer:
             output_dir=Path("/renders")
         )
         self.dimensioner = Dimensioner()
+        self.openscad_engine = OpenSCADEngine(workspace=Path("/workspace"))
         self.blueprint_renderer = BlueprintRenderer(output_dir="/renders")
         
         self.tools = {
@@ -51,6 +53,10 @@ class MCPServer:
             "list_models": self._list_models,
             "analyze_printability": self._analyze_printability,
             "get_render": self._get_render,
+            "load_scad": self._load_scad,
+            "render_scad": self._render_scad,
+            "convert_scad_to_build123d": self._convert_scad_to_build123d,
+            "extract_scad_dimensions": self._extract_scad_dimensions,
         }
     
     async def run(self):
@@ -483,6 +489,69 @@ class MCPServer:
             "base64": self._file_to_base64(p),
             "size_bytes": p.stat().st_size
         }
+    
+    def _load_scad(self, path: str) -> dict:
+        """Load an OpenSCAD file and extract info."""
+        try:
+            code = self.openscad_engine.load_scad(path)
+            modules = self.openscad_engine.extract_modules(code)
+            variables = self.openscad_engine.extract_variables(code)
+            dims = self.openscad_engine.extract_dimensions(code)
+            
+            return {
+                "success": True,
+                "path": path,
+                "modules": modules,
+                "variables": variables,
+                "dimensions": dims
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def _render_scad(self, scad_path: str, output_path: str = None) -> dict:
+        """Render SCAD to STL."""
+        result = self.openscad_engine.render_to_stl(scad_path, output_path)
+        
+        return {
+            "success": result.success,
+            "stl_path": str(result.stl_path) if result.stl_path else None,
+            "error": result.error,
+            "warnings": result.warnings or []
+        }
+    
+    def _convert_scad_to_build123d(self, scad_path: str = None, code: str = None) -> dict:
+        """Convert SCAD code to build123d."""
+        try:
+            if scad_path:
+                code = self.openscad_engine.load_scad(scad_path)
+            
+            build123d_code = self.openscad_engine.to_build123d(code)
+            
+            return {
+                "success": True,
+                "code": build123d_code,
+                "note": "Manual review required - this is a best-effort conversion"
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+    
+    def _extract_scad_dimensions(self, scad_path: str = None, code: str = None) -> dict:
+        """Extract dimensions from SCAD code."""
+        try:
+            if scad_path:
+                code = self.openscad_engine.load_scad(scad_path)
+            
+            dims = self.openscad_engine.extract_dimensions(code)
+            variables = self.openscad_engine.extract_variables(code)
+            
+            return {
+                "success": True,
+                "dimensions": dims,
+                "all_variables": variables,
+                "count": len(dims)
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
     
     @staticmethod
     def _file_to_base64(path: Path) -> str:
