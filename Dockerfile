@@ -52,7 +52,7 @@ RUN chmod +x entrypoint.sh
 RUN mkdir -p /workspace /renders && \
     chown -R 1000:1000 /workspace /renders /app
 
-USER 1000
+USER root
 
 EXPOSE 8123
 
