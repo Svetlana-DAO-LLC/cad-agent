@@ -6,6 +6,7 @@ model state management, and geometry analysis.
 """
 
 import io
+import re
 import sys
 import traceback
 import hashlib
@@ -15,6 +16,11 @@ from typing import Any, Optional
 from dataclasses import dataclass, field
 
 import numpy as np
+
+# Import lines in model code that only re-import what _build_namespace preloads.
+_PRELOADED_IMPORT = re.compile(
+    r"from build123d import \*|import math|import numpy( as np)?"
+)
 
 
 @dataclass
@@ -71,27 +77,34 @@ class CADEngine:
         self.models: dict[str, ModelState] = {}
         self.active_model: Optional[str] = None
     
-    def execute_code(self, code: str, model_name: str = \"default\") -> dict:
-        \"\"\"
+    def execute_code(self, code: str, model_name: str = "default") -> dict:
+        """
         Execute build123d code in a sandboxed namespace.
         
         Returns dict with: success, result_shape, output, error, geometry_info
-        \"\"\"
+        """
+        # Imports of names already preloaded by _build_namespace are no-ops; blank them
+        # (keeping line numbers) so they pass the blacklist and don't need __import__.
+        code = "\n".join(
+            "" if _PRELOADED_IMPORT.fullmatch(line.strip()) else line
+            for line in code.split("\n")
+        )
+
         # Basic static analysis for dangerous keywords
         blacklist = ['import ', 'eval(', 'exec(', 'os.', 'subprocess', 'open(', 'write(', 'read(', 'socket']
         for word in blacklist:
             if word in code:
-                return {\"success\": False, \"output\": \"\", \"error\": f\"Security Error: Forbidden keyword '{word}' detected.\", \"geometry\": None}
+                return {"success": False, "output": "", "error": f"Security Error: Forbidden keyword '{word}' detected.", "geometry": None}
 
         # Capture stdout/stderr
         old_stdout, old_stderr = sys.stdout, sys.stderr
         sys.stdout = io.StringIO()
         sys.stderr = io.StringIO()
         
-        namespace = self._build_namespace()
         result = {"success": False, "output": "", "error": "", "geometry": None}
         
         try:
+            namespace = self._build_namespace()
             exec(code, namespace)
             
             # Find the resulting shape(s) in namespace
@@ -130,7 +143,7 @@ class CADEngine:
         return result
     
     def _build_namespace(self) -> dict:
-        \"\"\"Build the execution namespace with restricted build123d imports.\"\"\"
+        """Build the execution namespace with restricted build123d imports."""
         # Restricted builtins
         safe_builtins = {
             'abs': abs, 'all': all, 'any': any, 'bin': bin, 'bool': bool,
@@ -144,16 +157,24 @@ class CADEngine:
             'range': range, 'repr': repr, 'reversed': reversed, 'round': round,
             'set': set, 'slice': slice, 'sorted': sorted, 'str': str, 'sum': sum,
             'tuple': tuple, 'type': type, 'zip': zip,
+            # Needed for `class` statements in model code
+            '__build_class__': __build_class__, 'object': object, 'super': super,
+            'property': property, 'staticmethod': staticmethod, 'classmethod': classmethod,
             '__name__': '__main__', '__doc__': None, '__package__': None,
         }
         
-        namespace = {\"__builtins__\": safe_builtins}
+        namespace = {"__builtins__": safe_builtins}
         
-        # Import build123d into namespace
+        # Import build123d into namespace. Done from trusted code because the
+        # restricted builtins above have no __import__, so exec("from ... import *") fails.
         try:
-            exec("from build123d import *", namespace)
+            import build123d as _b3d
+            import math as _math
         except ImportError as e:
             raise RuntimeError(f"build123d not available: {e}")
+        _names = getattr(_b3d, "__all__", None) or [n for n in dir(_b3d) if not n.startswith("_")]
+        namespace.update({n: getattr(_b3d, n) for n in _names})
+        namespace["math"] = _math
         
         # Add numpy for parametric work
         namespace["np"] = np
@@ -218,13 +239,18 @@ class CADEngine:
         elif format == "step":
             export_step(state.shape, str(path))
         elif format == "3mf":
-            # build123d may support this
+            # build123d has no export_3mf; 3MF is written via Mesher (build123d >= 0.5)
+            # Mesher.write (lib3mf) sets the process locale to C, which turns Python's
+            # default text encoding into ASCII for every later write; restore it.
+            import locale
+            from build123d import Mesher
+            saved_locale = locale.setlocale(locale.LC_ALL)
             try:
-                from build123d import export_3mf
-                export_3mf(state.shape, str(path))
-            except ImportError:
-                export_stl(state.shape, str(path.with_suffix('.stl')))
-                path = path.with_suffix('.stl')
+                mesher = Mesher()
+                mesher.add_shape(state.shape)
+                mesher.write(str(path))
+            finally:
+                locale.setlocale(locale.LC_ALL, saved_locale)
         else:
             raise ValueError(f"Unsupported format: {format}")
         

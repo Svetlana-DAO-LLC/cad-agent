@@ -19,3 +19,6 @@ pydantic>=2.0.0
 # Utilities
 scipy>=1.11.0
 pytest>=7.0.0
+
+# VTK for 3D renders (src/vtk_renderer.py)
+vtk>=9.3

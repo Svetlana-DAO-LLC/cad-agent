@@ -161,6 +161,71 @@ def test_error_handling():
     assert result["geometry"] is None
 
 
+def test_class_definitions():
+    """Test that model code can define and use classes."""
+    from src.cad_engine import CADEngine
+
+    engine = CADEngine(workspace=Path("/tmp/test_workspace"))
+    result = engine.execute_code("""
+class Plate:
+    def __init__(self, w, d):
+        self.w, self.d = w, d
+    @property
+    def part(self):
+        return Box(self.w, self.d, 5)
+result = Plate(40, 20).part
+""", "test_class")
+    assert result["success"], f"Failed: {result['error']}"
+    assert result["geometry"] is not None
+
+
+def test_imports():
+    """Test that preloaded imports are allowed and other imports are still rejected."""
+    from src.cad_engine import CADEngine
+
+    engine = CADEngine(workspace=Path("/tmp/test_workspace"))
+    result = engine.execute_code("import math\nimport numpy as np\nresult = Box(1, 1, 1)", "ok_imports")
+    assert result["success"], f"Failed: {result['error']}"
+
+    for code in ("import os\nresult = Box(1, 1, 1)", "from os import path\nresult = Box(1, 1, 1)"):
+        result = engine.execute_code(code, "bad_import")
+        assert not result["success"]
+        assert "Security Error" in result["error"]
+
+
+def test_3mf_export_keeps_locale():
+    """Test that 3MF export does not leave the process locale changed (lib3mf sets it to C)."""
+    import locale
+    from src.cad_engine import CADEngine
+
+    engine = CADEngine(workspace=Path("/tmp/test_workspace"))
+    engine.execute_code("result = Box(10, 10, 10)", "test_3mf")
+    before = locale.setlocale(locale.LC_ALL)
+    path = engine.export_model("test_3mf", "3mf")
+    assert path.read_bytes()[:2] == b"PK"
+    assert locale.setlocale(locale.LC_ALL) == before
+
+
+def test_mcp_render_returns_image_block():
+    """Test that MCP render results attach the PNG as an image block, not base64 text."""
+    import asyncio
+    import base64
+    from src.mcp_server import MCPServer
+
+    server = MCPServer()
+    server._create_model("result = Box(10, 10, 10)", "test_mcp_image")
+    response = asyncio.run(server._handle_request({
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "render_3d", "arguments": {"name": "test_mcp_image", "view": "iso"}},
+    }))
+    content = response["result"]["content"]
+    assert content[0]["type"] == "text"
+    assert "base64" not in content[0]["text"]
+    assert content[1]["type"] == "image"
+    assert content[1]["mimeType"] == "image/png"
+    assert base64.b64decode(content[1]["data"])[:8] == b"\x89PNG\r\n\x1a\n"
+
+
 if __name__ == "__main__":
     print("Running integration tests...")
     
@@ -171,6 +236,10 @@ if __name__ == "__main__":
         test_direct_export,
         test_printability,
         test_error_handling,
+        test_class_definitions,
+        test_imports,
+        test_3mf_export_keeps_locale,
+        test_mcp_render_returns_image_block,
     ]
     
     passed = 0

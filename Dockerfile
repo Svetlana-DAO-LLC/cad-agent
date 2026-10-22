@@ -2,7 +2,7 @@ FROM python:3.11-slim-bookworm
 
 # Install system dependencies for OpenCascade + headless rendering + cairo + VTK
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
@@ -24,13 +24,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libosmesa6-dev \
     libglu1-mesa \
     libgomp1 \
-    libegl1-mesa \
+    libegl1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set environment for headless rendering
 ENV MPLBACKEND=Agg
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+# UTF-8 text I/O regardless of locale (lib3mf resets the process locale to C on 3MF write)
+ENV PYTHONUTF8=1
 # VTK offscreen rendering with Xvfb
 ENV DISPLAY=:99
 
@@ -48,11 +50,12 @@ COPY examples/ ./examples/
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
-# Working directories
-RUN mkdir -p /workspace /renders && \
-    chown -R 1000:1000 /workspace /renders /app
+# Working directories, owned by an unprivileged user (model code runs via exec())
+RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin cad && \
+    mkdir -p /workspace /renders && \
+    chown -R cad:cad /workspace /renders /app
 
-USER root
+USER cad
 
 EXPOSE 8123
 

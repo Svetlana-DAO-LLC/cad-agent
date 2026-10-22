@@ -3,7 +3,7 @@ set -e
 
 # Start Xvfb for headless VTK rendering
 start_xvfb() {
-    if ! pgrep -x Xvfb > /dev/null; then
+    if [ ! -e /tmp/.X99-lock ]; then
         echo "Starting Xvfb virtual framebuffer..." >&2
         Xvfb :99 -screen 0 1280x1024x24 &>/dev/null &
         sleep 0.5

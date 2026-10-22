@@ -141,7 +141,7 @@ class MCPServer:
                     return {
                         "jsonrpc": "2.0",
                         "id": req_id,
-                        "result": {"content": [{"type": "text", "text": json.dumps(result, indent=2)}]}
+                        "result": {"content": self._to_mcp_content(result)}
                     }
                 except Exception as e:
                     return {
@@ -157,7 +157,21 @@ class MCPServer:
                 }
         
         return None
-    
+
+    # Result fields holding base64 PNG data (shared with the HTTP API)
+    _IMAGE_FIELDS = ("base64", "preview_base64")
+
+    def _to_mcp_content(self, result) -> list[dict]:
+        """Convert a tool result to MCP content: base64 PNGs become image blocks, the rest JSON text."""
+        images = []
+        if isinstance(result, dict):
+            result = dict(result)
+            for field in self._IMAGE_FIELDS:
+                data = result.pop(field, None)
+                if data:
+                    images.append({"type": "image", "data": data, "mimeType": "image/png"})
+        return [{"type": "text", "text": json.dumps(result, indent=2)}] + images
+
     def _get_tool_definitions(self) -> list[dict]:
         """Return MCP tool definitions."""
         return [
@@ -187,7 +201,7 @@ class MCPServer:
             },
             {
                 "name": "render_3d",
-                "description": "Render a 3D view of the model. Returns the image path and base64 encoded PNG.",
+                "description": "Render a 3D view of the model. Returns the image path; the PNG is attached as an image.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -282,7 +296,7 @@ class MCPServer:
             },
             {
                 "name": "get_render",
-                "description": "Get a previously rendered image as base64 PNG. Use after render_* commands.",
+                "description": "Get a previously rendered PNG, attached as an image. Use after render_* commands.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -573,7 +587,7 @@ def create_http_app():
     
     # CORS for development
     from fastapi.middleware.cors import CORSMiddleware
-    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:8123", "http://127.0.0.1:8123"], allow_methods=["*"], allow_headers=["*"])
     
     server = MCPServer()
     

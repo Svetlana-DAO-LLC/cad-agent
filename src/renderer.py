@@ -448,7 +448,7 @@ class Renderer:
             
         # Save SVG
         svg_content = td.to_svg()
-        svg_path.write_text(svg_content)
+        svg_path.write_text(svg_content, encoding="utf-8")
         
         # Convert to PNG
         self._svg_to_png(svg_content, output_path)
