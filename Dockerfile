@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-dejavu-core \
     fonts-dejavu-extra \
     pkg-config \
+    procps \
     # VTK/headless rendering dependencies
     xvfb \
     libosmesa6 \
@@ -38,7 +39,7 @@ WORKDIR /app
 
 # Install Python dependencies (OCP wheel is ~60MB, cache this layer)
 COPY requirements.txt .
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN pip install --no-cache-dir --upgrade pip "setuptools>=84.1.0" && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy application code

@@ -3,6 +3,7 @@ build123d>=0.8.0
 
 # 3D rendering (headless)
 trimesh>=4.0.0
+vtk>=9.3.0
 numpy>=2.0.0
 Pillow>=10.0.0
 
